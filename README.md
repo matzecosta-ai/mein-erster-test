@@ -37,8 +37,9 @@ einzeln und startet auch, wenn eine davon nicht klappt.)
 
 Es öffnet sich **ein** Fenster mit:
 
-- einer Liste aller importierten Titel (Titel, Interpret, Album, Dauer,
-  Stimmungen) – erscheint automatisch, sobald ein Ordner importiert wurde
+- einer Liste aller importierten Titel (Titel, Interpret, Jahr, Album,
+  Dauer, Stimmungen) – erscheint automatisch, sobald ein Ordner
+  importiert wurde
 - einem Suchfeld oben, das die Liste beim Tippen sofort nach Titel filtert
 - einem Stimmungs-Filter (Dropdown) daneben
 - einem Detailbereich rechts: beim Anklicken eines Titels werden dort die
@@ -63,6 +64,17 @@ Es öffnet sich **ein** Fenster mit:
   Album-Texten (max. 3 Wörter), die ein bekanntes Stimmungswort enthalten,
   und verschiebt sie automatisch zu den Stimmungen. Läuft ab sofort auch
   automatisch bei jedem neuen Import mit.
+- **Erscheinungsjahr**: wird beim Import automatisch aus den Metadaten
+  gelesen und in der Liste sowie im Detailbereich angezeigt (sofern die
+  Datei ein Datums-Tag enthält).
+- **Nur echte Musikdateien**: Dateien mit passender Endung (.mp3 usw.),
+  die sich nicht als echte Audiodatei lesen lassen (falsch benannt,
+  beschädigt, o.ä.), werden beim Import übersprungen statt fälschlich
+  als Titel angelegt zu werden.
+- **Titelnummern werden automatisch entfernt**: aus "01 Sonnenschein"
+  oder "007. Titelname" wird beim Import "Sonnenschein" bzw. "Titelname".
+  Titel, die zufällig mit einer Zahl beginnen (z.B. "1979" oder "24K
+  Magic"), bleiben unangetastet.
 
 Für ein Icon auf dem Desktop:
 - **Windows:** `Verknuepfung_erstellen.bat` einmal per Doppelklick

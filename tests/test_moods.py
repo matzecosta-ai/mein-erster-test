@@ -70,6 +70,7 @@ def test_import_directory_erkennt_stimmung_im_album_feld(tmp_path, monkeypatch):
             "artist": "Band",
             "album": "Spannung",
             "genre": None,
+            "year": None,
             "duration_sec": None,
         },
         str(datei_normal.resolve()): {
@@ -77,6 +78,7 @@ def test_import_directory_erkennt_stimmung_im_album_feld(tmp_path, monkeypatch):
             "artist": "Band",
             "album": "Echtes Album",
             "genre": "Metal",
+            "year": 2005,
             "duration_sec": None,
         },
     }
@@ -85,6 +87,9 @@ def test_import_directory_erkennt_stimmung_im_album_feld(tmp_path, monkeypatch):
         return fake_tags[str(filepath.resolve())]
 
     monkeypatch.setattr(importer.scanner, "read_tags", fake_read_tags)
+    # Dateien sind hier nur Platzhalter (leer) - die Echtheitspruefung ist
+    # nicht Gegenstand dieses Tests und wird deshalb uebersprungen.
+    monkeypatch.setattr(importer.scanner, "is_valid_audio", lambda filepath: True)
 
     db_path = tmp_path / "test.db"
     with db.connect(db_path) as conn:
@@ -99,7 +104,41 @@ def test_import_directory_erkennt_stimmung_im_album_feld(tmp_path, monkeypatch):
 
         song2 = conn.execute("SELECT * FROM songs WHERE title='Song 2'").fetchone()
         assert song2["album"] == "Echtes Album"
+        assert song2["year"] == 2005
         assert set(organizer._mood_names(conn, song2["id"])) == {"Wut", "Spannung"}
+
+
+def test_import_directory_ignoriert_ungueltige_audiodateien(tmp_path, monkeypatch):
+    musik_ordner = tmp_path / "musik"
+    musik_ordner.mkdir()
+    echte_datei = musik_ordner / "echt.mp3"
+    kaputte_datei = musik_ordner / "kaputt.mp3"
+    echte_datei.write_bytes(b"")
+    kaputte_datei.write_bytes(b"")
+
+    def fake_read_tags(filepath: Path):
+        return {
+            "title": filepath.stem,
+            "artist": None,
+            "album": None,
+            "genre": None,
+            "year": None,
+            "duration_sec": None,
+        }
+
+    def fake_is_valid_audio(filepath: Path):
+        return filepath.name == "echt.mp3"
+
+    monkeypatch.setattr(importer.scanner, "read_tags", fake_read_tags)
+    monkeypatch.setattr(importer.scanner, "is_valid_audio", fake_is_valid_audio)
+
+    db_path = tmp_path / "test.db"
+    with db.connect(db_path) as conn:
+        ergebnis = importer.import_directory(conn, musik_ordner)
+        assert ergebnis["added"] == 1
+        assert ergebnis["ignoriert"] == 1
+        titel = [r["title"] for r in conn.execute("SELECT title FROM songs").fetchall()]
+        assert titel == ["echt"]
 
 
 def test_datenbank_migration_ergaenzt_genre_spalte(tmp_path):
@@ -128,5 +167,7 @@ def test_datenbank_migration_ergaenzt_genre_spalte(tmp_path):
     with db.connect(db_path) as new_conn:
         columns = {r["name"] for r in new_conn.execute("PRAGMA table_info(songs)").fetchall()}
         assert "genre" in columns
+        assert "year" in columns
         row = new_conn.execute("SELECT * FROM songs WHERE title='Alter Titel'").fetchone()
         assert row["genre"] is None
+        assert row["year"] is None

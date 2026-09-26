@@ -12,6 +12,11 @@ def cmd_import(args):
             conn, args.ordner, auto_suggest_by_genre=not args.kein_genre_vorschlag
         )
         print(f"{ergebnis['added']} Titel importiert, {ergebnis['skipped']} bereits vorhanden.")
+        if ergebnis["ignoriert"]:
+            print(
+                f"  {ergebnis['ignoriert']} Datei(en) übersprungen - "
+                "keine gültige Audiodatei (falsche Endung, beschädigt o.ä.)."
+            )
         if ergebnis["album_fixed"]:
             print(
                 f"  {ergebnis['album_fixed']} davon hatten eine Stimmung im Album-Feld "
@@ -104,7 +109,11 @@ def _print_songs(conn, rows):
     for song in rows:
         song_moods = organizer._mood_names(conn, song["id"])
         mood_str = ", ".join(song_moods) or "-"
-        print(f"[{song['id']}] {song['title']} - {song['artist'] or '?'} | Stimmungen: {mood_str}")
+        jahr = f" ({song['year']})" if song["year"] else ""
+        print(
+            f"[{song['id']}] {song['title']}{jahr} - {song['artist'] or '?'} | "
+            f"Stimmungen: {mood_str}"
+        )
         print(f"      Datei: {song['filepath']}")
 
 

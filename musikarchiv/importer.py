@@ -8,16 +8,26 @@ from . import moods, scanner
 def import_directory(conn, directory, auto_suggest_by_genre=True):
     """Importiert alle Musikdateien aus 'directory'.
 
+    Dateien mit passender Endung, die sich nicht als echte Audiodatei lesen
+    lassen (z.B. falsch benannte oder beschaedigte Dateien), werden
+    uebersprungen und nicht importiert.
+
     Erkennt dabei automatisch, wenn im Album-Feld eigentlich eine Stimmung
     steht (z.B. "Spannung"), und ordnet sie stattdessen den Stimmungen zu.
     Optional werden zusaetzlich Stimmungs-Vorschlaege anhand des Genre-Tags
     vergeben.
 
-    Gibt ein Dict mit Zaehlwerten zurueck: added, skipped, album_fixed,
-    genre_suggested.
+    Gibt ein Dict mit Zaehlwerten zurueck: added, skipped, ignoriert
+    (keine echte Audiodatei), album_fixed, genre_suggested.
     """
     known_moods = moods.get_known_moods(conn)
-    ergebnis = {"added": 0, "skipped": 0, "album_fixed": 0, "genre_suggested": 0}
+    ergebnis = {
+        "added": 0,
+        "skipped": 0,
+        "ignoriert": 0,
+        "album_fixed": 0,
+        "genre_suggested": 0,
+    }
 
     for filepath in scanner.find_audio_files(Path(directory)):
         filepath_str = str(filepath.resolve())
@@ -28,6 +38,10 @@ def import_directory(conn, directory, auto_suggest_by_genre=True):
             ergebnis["skipped"] += 1
             continue
 
+        if not scanner.is_valid_audio(filepath):
+            ergebnis["ignoriert"] += 1
+            continue
+
         tags = scanner.read_tags(filepath)
         album = tags["album"]
         stimmung_aus_album = None
@@ -36,9 +50,17 @@ def import_directory(conn, directory, auto_suggest_by_genre=True):
             album = None
 
         cursor = conn.execute(
-            "INSERT INTO songs (title, artist, album, genre, filepath, duration_sec) "
-            "VALUES (?, ?, ?, ?, ?, ?)",
-            (tags["title"], tags["artist"], album, tags["genre"], filepath_str, tags["duration_sec"]),
+            "INSERT INTO songs (title, artist, album, genre, year, filepath, duration_sec) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?)",
+            (
+                tags["title"],
+                tags["artist"],
+                album,
+                tags["genre"],
+                tags["year"],
+                filepath_str,
+                tags["duration_sec"],
+            ),
         )
         song_id = cursor.lastrowid
         ergebnis["added"] += 1

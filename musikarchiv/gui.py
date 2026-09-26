@@ -118,11 +118,12 @@ class MusikArchivApp(tk.Tk):
 
         # --- Liste ---
         list_frame = ttk.Frame(main)
-        columns = ("titel", "interpret", "album", "dauer", "stimmungen")
+        columns = ("titel", "interpret", "jahr", "album", "dauer", "stimmungen")
         self.tree = ttk.Treeview(list_frame, columns=columns, show="headings", selectmode="browse")
         headings = {
             "titel": ("Titel", 220),
             "interpret": ("Interpret", 150),
+            "jahr": ("Jahr", 60),
             "album": ("Album", 150),
             "dauer": ("Dauer", 70),
             "stimmungen": ("Stimmungen", 220),
@@ -148,12 +149,14 @@ class MusikArchivApp(tk.Tk):
         self.detail_title_var = tk.StringVar(value="–")
         self.detail_artist_var = tk.StringVar(value="")
         self.detail_album_var = tk.StringVar(value="")
+        self.detail_year_var = tk.StringVar(value="")
         self.detail_path_var = tk.StringVar(value="")
         ttk.Label(detail_frame, textvariable=self.detail_title_var, font=("", 10, "bold")).pack(
             anchor="w", pady=(6, 0)
         )
         ttk.Label(detail_frame, textvariable=self.detail_artist_var).pack(anchor="w")
         ttk.Label(detail_frame, textvariable=self.detail_album_var).pack(anchor="w")
+        ttk.Label(detail_frame, textvariable=self.detail_year_var).pack(anchor="w")
         ttk.Label(
             detail_frame, textvariable=self.detail_path_var, wraplength=260, foreground="#666"
         ).pack(anchor="w", pady=(4, 4))
@@ -277,6 +280,7 @@ class MusikArchivApp(tk.Tk):
                 values=(
                     row["title"],
                     row["artist"] or "",
+                    row["year"] or "",
                     row["album"] or "",
                     dauer,
                     row["moods"] or "",
@@ -308,6 +312,7 @@ class MusikArchivApp(tk.Tk):
         self.detail_title_var.set(song["title"])
         self.detail_artist_var.set(song["artist"] or "Interpret unbekannt")
         self.detail_album_var.set(song["album"] or "")
+        self.detail_year_var.set(f"Jahr: {song['year']}" if song["year"] else "")
         self.detail_path_var.set(song["filepath"])
         self.detail_genre = song["genre"]
         self.mood_listbox.delete(0, "end")
@@ -319,6 +324,7 @@ class MusikArchivApp(tk.Tk):
         self.detail_title_var.set("–")
         self.detail_artist_var.set("")
         self.detail_album_var.set("")
+        self.detail_year_var.set("")
         self.detail_path_var.set("")
         self.detail_genre = None
         self.mood_listbox.delete(0, "end")
@@ -339,6 +345,11 @@ class MusikArchivApp(tk.Tk):
             f"{ergebnis['added']} Titel importiert, "
             f"{ergebnis['skipped']} bereits vorhanden."
         )
+        if ergebnis["ignoriert"]:
+            text += (
+                f"\n{ergebnis['ignoriert']} Datei(en) übersprungen - "
+                "keine gültige Audiodatei (falsche Endung, beschädigt o.ä.)."
+            )
         if ergebnis["album_fixed"]:
             text += (
                 f"\n{ergebnis['album_fixed']} davon hatten eine Stimmung im Album-Feld "

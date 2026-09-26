@@ -11,6 +11,7 @@ CREATE TABLE IF NOT EXISTS songs (
     artist TEXT,
     album TEXT,
     genre TEXT,
+    year INTEGER,
     filepath TEXT UNIQUE NOT NULL,
     duration_sec INTEGER,
     added_at TEXT NOT NULL DEFAULT (datetime('now'))
@@ -34,6 +35,8 @@ def _migrate(conn):
     columns = {row["name"] for row in conn.execute("PRAGMA table_info(songs)").fetchall()}
     if "genre" not in columns:
         conn.execute("ALTER TABLE songs ADD COLUMN genre TEXT")
+    if "year" not in columns:
+        conn.execute("ALTER TABLE songs ADD COLUMN year INTEGER")
 
 
 @contextmanager
