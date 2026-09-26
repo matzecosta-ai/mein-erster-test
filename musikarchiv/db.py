@@ -10,6 +10,7 @@ CREATE TABLE IF NOT EXISTS songs (
     title TEXT NOT NULL,
     artist TEXT,
     album TEXT,
+    genre TEXT,
     filepath TEXT UNIQUE NOT NULL,
     duration_sec INTEGER,
     added_at TEXT NOT NULL DEFAULT (datetime('now'))
@@ -28,6 +29,13 @@ CREATE TABLE IF NOT EXISTS song_moods (
 """
 
 
+def _migrate(conn):
+    """Ergaenzt Spalten, die in frueheren Versionen der Datenbank noch fehlen."""
+    columns = {row["name"] for row in conn.execute("PRAGMA table_info(songs)").fetchall()}
+    if "genre" not in columns:
+        conn.execute("ALTER TABLE songs ADD COLUMN genre TEXT")
+
+
 @contextmanager
 def connect(db_path=DEFAULT_DB_PATH):
     db_path = Path(db_path)
@@ -37,6 +45,7 @@ def connect(db_path=DEFAULT_DB_PATH):
     conn.row_factory = sqlite3.Row
     try:
         conn.executescript(SCHEMA)
+        _migrate(conn)
         yield conn
         conn.commit()
     finally:

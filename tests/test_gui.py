@@ -100,6 +100,59 @@ def test_stimmung_hinzufuegen_und_entfernen_behaelt_auswahl(tmp_path):
         app.destroy()
 
 
+def test_suggest_mood_nutzt_genre(tmp_path, monkeypatch):
+    db_path = tmp_path / "test.db"
+    with db.connect(db_path) as conn:
+        conn.execute(
+            "INSERT INTO songs (title, artist, album, genre, filepath, duration_sec) "
+            "VALUES (?,?,?,?,?,?)",
+            ("Rockhymne", "Band A", None, "Metal", str(tmp_path / "rock.mp3"), 200),
+        )
+
+    monkeypatch.setattr(gui.messagebox, "showinfo", lambda *a, **k: None)
+    monkeypatch.setattr(gui.messagebox, "showwarning", lambda *a, **k: None)
+
+    app = _app_or_skip(db_path)
+    app.update()
+    try:
+        app.tree.selection_set(app.tree.get_children()[0])
+        app.on_select_song()
+        assert app.detail_genre == "Metal"
+
+        app.suggest_mood()
+        app.update()
+
+        with db.connect(db_path) as conn:
+            song_id = conn.execute("SELECT id FROM songs").fetchone()["id"]
+            zugewiesen = set(organizer._mood_names(conn, song_id))
+        assert zugewiesen == {"Wut", "Spannung"}
+    finally:
+        app.destroy()
+
+
+def test_fix_album_moods_in_der_gui(tmp_path, monkeypatch):
+    db_path = tmp_path / "test.db"
+    with db.connect(db_path) as conn:
+        conn.execute(
+            "INSERT INTO songs (title, artist, album, filepath) VALUES (?,?,?,?)",
+            ("Testlied", "Band A", "Spannung", str(tmp_path / "t.mp3")),
+        )
+
+    monkeypatch.setattr(gui.messagebox, "showinfo", lambda *a, **k: None)
+
+    app = _app_or_skip(db_path)
+    app.update()
+    try:
+        app.fix_album_moods()
+        app.update()
+        with db.connect(db_path) as conn:
+            song = conn.execute("SELECT * FROM songs WHERE title='Testlied'").fetchone()
+            assert song["album"] is None
+            assert organizer._mood_names(conn, song["id"]) == ["Spannung"]
+    finally:
+        app.destroy()
+
+
 def test_organize_sortiert_dateien(tmp_path):
     db_path = tmp_path / "test.db"
     _seed_songs(db_path, tmp_path)

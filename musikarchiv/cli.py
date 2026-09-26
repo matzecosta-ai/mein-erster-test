@@ -1,45 +1,38 @@
 import argparse
 from pathlib import Path
 
-from . import db, organizer, scanner
+from . import db, importer, moods, organizer
 
-SUGGESTED_MOODS = [
-    "Freude",
-    "Spannung",
-    "Liebeslieder",
-    "Drama",
-    "Trauer",
-    "Wut",
-    "Entspannung",
-    "Party",
-    "Nostalgie",
-    "Motivation",
-    "Melancholie",
-    "Romantik",
-    "Hoffnung",
-    "Wehmut",
-]
+SUGGESTED_MOODS = moods.SUGGESTED_MOODS
 
 
 def cmd_import(args):
     with db.connect(args.db) as conn:
-        added, skipped = 0, 0
-        for filepath in scanner.find_audio_files(args.ordner):
-            filepath_str = str(filepath.resolve())
-            exists = conn.execute(
-                "SELECT 1 FROM songs WHERE filepath = ?", (filepath_str,)
-            ).fetchone()
-            if exists:
-                skipped += 1
-                continue
-            tags = scanner.read_tags(filepath)
-            conn.execute(
-                "INSERT INTO songs (title, artist, album, filepath, duration_sec) "
-                "VALUES (?, ?, ?, ?, ?)",
-                (tags["title"], tags["artist"], tags["album"], filepath_str, tags["duration_sec"]),
+        ergebnis = importer.import_directory(
+            conn, args.ordner, auto_suggest_by_genre=not args.kein_genre_vorschlag
+        )
+        print(f"{ergebnis['added']} Titel importiert, {ergebnis['skipped']} bereits vorhanden.")
+        if ergebnis["album_fixed"]:
+            print(
+                f"  {ergebnis['album_fixed']} davon hatten eine Stimmung im Album-Feld "
+                "- automatisch korrigiert."
             )
-            added += 1
-        print(f"{added} Titel importiert, {skipped} bereits vorhanden.")
+        if ergebnis["genre_suggested"]:
+            print(
+                f"  {ergebnis['genre_suggested']} davon bekamen anhand des Genre-Tags "
+                "einen Stimmungs-Vorschlag."
+            )
+
+
+def cmd_fix_album_moods(args):
+    with db.connect(args.db) as conn:
+        aenderungen = moods.fix_existing_album_moods(conn)
+        if not aenderungen:
+            print("Keine betroffenen Titel gefunden.")
+            return
+        print(f"{len(aenderungen)} Titel korrigiert:")
+        for _, titel, stimmung in aenderungen:
+            print(f"  '{titel}': Album -> Stimmung '{stimmung}'")
 
 
 def _find_song(conn, identifier):
@@ -109,8 +102,8 @@ def _print_songs(conn, rows):
         print("Keine Titel gefunden.")
         return
     for song in rows:
-        moods = organizer._mood_names(conn, song["id"])
-        mood_str = ", ".join(moods) or "-"
+        song_moods = organizer._mood_names(conn, song["id"])
+        mood_str = ", ".join(song_moods) or "-"
         print(f"[{song['id']}] {song['title']} - {song['artist'] or '?'} | Stimmungen: {mood_str}")
         print(f"      Datei: {song['filepath']}")
 
@@ -166,7 +159,18 @@ def build_parser():
 
     p = sub.add_parser("import", help="Ordner nach Musikdateien durchsuchen und importieren")
     p.add_argument("ordner", type=Path)
+    p.add_argument(
+        "--kein-genre-vorschlag",
+        action="store_true",
+        help="Keine automatischen Stimmungs-Vorschlaege anhand des Genre-Tags",
+    )
     p.set_defaults(func=cmd_import)
+
+    p = sub.add_parser(
+        "fix-album-moods",
+        help="Bereits importierte Titel korrigieren, bei denen eine Stimmung im Album-Feld steht",
+    )
+    p.set_defaults(func=cmd_fix_album_moods)
 
     p = sub.add_parser("mood-add", help="Stimmung(en) einem Titel zuweisen")
     p.add_argument("song", help="Titel-ID oder Teil des Titelnamens")

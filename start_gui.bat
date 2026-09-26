@@ -27,7 +27,7 @@ if not defined PYCMD (
 rem --- Abhaengigkeiten pruefen und bei Bedarf installieren (dafuer "python" statt "pythonw") ---
 set "CHECKCMD=%PYCMD%"
 if "%PYCMD%"=="pythonw" set "CHECKCMD=python"
-%CHECKCMD% -c "import mutagen" >nul 2>nul
+%CHECKCMD% -c "import mutagen, pygame" >nul 2>nul
 if errorlevel 1 (
     echo Installiere benoetigte Bibliotheken, einen Moment ...
     %CHECKCMD% -m pip install -r requirements.txt

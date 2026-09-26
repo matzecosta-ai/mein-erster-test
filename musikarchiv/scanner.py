@@ -22,6 +22,7 @@ def read_tags(filepath: Path):
     title = filepath.stem
     artist = None
     album = None
+    genre = None
     duration_sec = None
 
     if HAS_MUTAGEN:
@@ -32,6 +33,7 @@ def read_tags(filepath: Path):
                     title = _first(audio.tags.get("title")) or title
                     artist = _first(audio.tags.get("artist"))
                     album = _first(audio.tags.get("album"))
+                    genre = _first(audio.tags.get("genre"))
                 if audio.info is not None and hasattr(audio.info, "length"):
                     duration_sec = int(audio.info.length)
         except Exception:
@@ -41,6 +43,7 @@ def read_tags(filepath: Path):
         "title": title,
         "artist": artist,
         "album": album,
+        "genre": genre,
         "duration_sec": duration_sec,
     }
 

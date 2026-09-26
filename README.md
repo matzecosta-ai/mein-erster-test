@@ -34,6 +34,24 @@ Fenster mit:
   Stimmungen angezeigt, hinzugefügt oder entfernt – direkt im selben Fenster
 - einem Bereich "Auf Festplatte sortieren" (Stimmung/Interpret, Kopieren/
   Verschieben/Verknüpfen), der über einen Ordner-Auswahldialog sortiert
+- **▶ Abspielen / ⏹ Stopp** zum Reinhören in den ausgewählten Titel
+  (Doppelklick auf einen Titel startet die Wiedergabe ebenfalls);
+  unterstützt mp3/wav/ogg/flac, benötigt die Bibliothek `pygame`
+- **Automatische Stimmungs-Vorschläge**: beim Import wird anhand des
+  Genre-Tags der Datei eine passende Stimmung vorgeschlagen und vergeben
+  (z.B. "Metal" → Wut/Spannung, "Ballade" → Liebeslieder/Romantik) – lässt
+  sich über die Checkbox "Stimmung nach Genre vorschlagen" abschalten.
+  **Wichtig:** Das ist eine Genre-basierte Faustregel, keine echte
+  Audio-Analyse – eine KI, die den Song wirklich "anhört" und die Stimmung
+  erkennt, wäre ein eigenes, deutlich aufwendigeres Projekt (trainiertes
+  Machine-Learning-Modell). Vorschläge lassen sich jederzeit über
+  "Ausgewählte Stimmung entfernen" korrigieren.
+- **"Album-Stimmungen korrigieren"**: behebt nachträglich Titel, bei denen
+  eine Stimmung (z.B. "Spannung" oder "leichte Spannung") versehentlich im
+  Album-Feld statt bei den Stimmungen gelandet ist – erkennt das an kurzen
+  Album-Texten (max. 3 Wörter), die ein bekanntes Stimmungswort enthalten,
+  und verschiebt sie automatisch zu den Stimmungen. Läuft ab sofort auch
+  automatisch bei jedem neuen Import mit.
 
 Für ein Icon auf dem Desktop: `Verknuepfung_erstellen.bat` einmal per
 Doppelklick ausführen. Sie legt eine Verknüpfung "Musikarchiv" mit dem
@@ -100,6 +118,18 @@ jedem passenden Stimmungsordner.
 
 Eine eigene Datenbankdatei kann mit `--db /pfad/zur/datei.db` vor dem
 jeweiligen Befehl angegeben werden.
+
+### 5. Album-Stimmungen korrigieren
+
+Falls schon vor dieser Funktion Titel importiert wurden, bei denen eine
+Stimmung im Album-Feld statt bei den Stimmungen gelandet ist:
+
+```bash
+python -m musikarchiv fix-album-moods
+```
+
+(`import` fügt bei jedem Aufruf `--kein-genre-vorschlag` hinzu, um die
+automatischen Genre-Vorschläge für diesen Import abzuschalten.)
 
 ## Tests
 

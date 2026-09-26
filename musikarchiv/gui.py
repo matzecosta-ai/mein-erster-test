@@ -4,10 +4,32 @@ import tkinter as tk
 from pathlib import Path
 from tkinter import filedialog, messagebox, ttk
 
-from . import db, organizer, scanner
+from . import db, importer, moods, organizer
 
 ICON_PATH = Path(__file__).resolve().parent.parent / "icon.ico"
 ALLE_STIMMUNGEN = "(alle Stimmungen)"
+
+# Audiowiedergabe wird erst beim ersten Abspielen geladen, damit die App
+# auch ohne installiertes 'pygame' startet (dann funktioniert nur Play/Stopp nicht).
+_mixer = None
+_mixer_versucht = False
+
+
+def _get_mixer():
+    global _mixer, _mixer_versucht
+    if _mixer is not None:
+        return _mixer
+    if _mixer_versucht:
+        return None
+    _mixer_versucht = True
+    try:
+        import pygame
+
+        pygame.mixer.init()
+        _mixer = pygame.mixer
+    except Exception:
+        _mixer = None
+    return _mixer
 
 
 class MusikArchivApp(tk.Tk):
@@ -23,9 +45,17 @@ class MusikArchivApp(tk.Tk):
             pass
 
         self.selected_song_id = None
+        self.detail_genre = None
         self._build_widgets()
         self.refresh_moods()
         self.refresh_songs()
+        self.protocol("WM_DELETE_WINDOW", self._on_close)
+
+    def _on_close(self):
+        mixer = _get_mixer()
+        if mixer is not None:
+            mixer.music.stop()
+        self.destroy()
 
     # ------------------------------------------------------------------ UI
     def _build_widgets(self):
@@ -39,8 +69,17 @@ class MusikArchivApp(tk.Tk):
         toolbar.pack(side="top", fill="x")
 
         ttk.Button(toolbar, text="Ordner importieren", command=self.import_folder).pack(
-            side="left", padx=(0, 16)
+            side="left", padx=(0, 8)
         )
+        self.auto_genre_var = tk.BooleanVar(value=True)
+        ttk.Checkbutton(
+            toolbar,
+            text="Stimmung nach Genre vorschlagen",
+            variable=self.auto_genre_var,
+        ).pack(side="left", padx=(0, 8))
+        ttk.Button(
+            toolbar, text="Album-Stimmungen korrigieren", command=self.fix_album_moods
+        ).pack(side="left", padx=(0, 16))
 
         ttk.Label(toolbar, text="Suche:").pack(side="left")
         self.search_var = tk.StringVar()
@@ -84,6 +123,7 @@ class MusikArchivApp(tk.Tk):
         self.tree.pack(side="left", fill="both", expand=True)
         vsb.pack(side="right", fill="y")
         self.tree.bind("<<TreeviewSelect>>", self.on_select_song)
+        self.tree.bind("<Double-1>", lambda _e: self.play_selected())
         main.add(list_frame, weight=3)
 
         # --- Detailbereich ---
@@ -104,7 +144,20 @@ class MusikArchivApp(tk.Tk):
         ttk.Label(detail_frame, textvariable=self.detail_album_var).pack(anchor="w")
         ttk.Label(
             detail_frame, textvariable=self.detail_path_var, wraplength=260, foreground="#666"
-        ).pack(anchor="w", pady=(4, 12))
+        ).pack(anchor="w", pady=(4, 4))
+
+        playback_row = ttk.Frame(detail_frame)
+        playback_row.pack(fill="x", pady=(0, 4))
+        ttk.Button(playback_row, text="▶ Abspielen", command=self.play_selected).pack(
+            side="left"
+        )
+        ttk.Button(playback_row, text="⏹ Stopp", command=self.stop_playback).pack(
+            side="left", padx=(6, 0)
+        )
+        self.playback_status_var = tk.StringVar(value="")
+        ttk.Label(detail_frame, textvariable=self.playback_status_var, foreground="#555").pack(
+            anchor="w", pady=(0, 12)
+        )
 
         ttk.Separator(detail_frame).pack(fill="x", pady=8)
         ttk.Label(detail_frame, text="Stimmungen", font=("", 10, "bold")).pack(anchor="w")
@@ -124,6 +177,9 @@ class MusikArchivApp(tk.Tk):
         ttk.Button(
             detail_frame, text="Ausgewählte Stimmung entfernen", command=self.remove_mood
         ).pack(anchor="w", pady=(6, 0))
+        ttk.Button(
+            detail_frame, text="Stimmung anhand Genre vorschlagen", command=self.suggest_mood
+        ).pack(anchor="w", pady=(2, 0), fill="x")
 
         ttk.Separator(detail_frame).pack(fill="x", pady=12)
         ttk.Label(detail_frame, text="Auf Festplatte sortieren", font=("", 10, "bold")).pack(
@@ -235,14 +291,15 @@ class MusikArchivApp(tk.Tk):
             if song is None:
                 self._clear_detail()
                 return
-            moods = organizer._mood_names(conn, song_id)
+            song_moods = organizer._mood_names(conn, song_id)
 
         self.detail_title_var.set(song["title"])
         self.detail_artist_var.set(song["artist"] or "Interpret unbekannt")
         self.detail_album_var.set(song["album"] or "")
         self.detail_path_var.set(song["filepath"])
+        self.detail_genre = song["genre"]
         self.mood_listbox.delete(0, "end")
-        for mood in moods:
+        for mood in song_moods:
             self.mood_listbox.insert("end", mood)
 
     def _clear_detail(self):
@@ -251,6 +308,7 @@ class MusikArchivApp(tk.Tk):
         self.detail_artist_var.set("")
         self.detail_album_var.set("")
         self.detail_path_var.set("")
+        self.detail_genre = None
         self.mood_listbox.delete(0, "end")
 
     # ------------------------------------------------------------ Aktionen
@@ -258,28 +316,98 @@ class MusikArchivApp(tk.Tk):
         ordner = filedialog.askdirectory(title="Musik-Ordner wählen")
         if not ordner:
             return
-        added, skipped = 0, 0
         with db.connect(self.db_path) as conn:
-            for filepath in scanner.find_audio_files(Path(ordner)):
-                filepath_str = str(filepath.resolve())
-                exists = conn.execute(
-                    "SELECT 1 FROM songs WHERE filepath = ?", (filepath_str,)
-                ).fetchone()
-                if exists:
-                    skipped += 1
-                    continue
-                tags = scanner.read_tags(filepath)
-                conn.execute(
-                    "INSERT INTO songs (title, artist, album, filepath, duration_sec) "
-                    "VALUES (?, ?, ?, ?, ?)",
-                    (tags["title"], tags["artist"], tags["album"], filepath_str, tags["duration_sec"]),
-                )
-                added += 1
+            ergebnis = importer.import_directory(
+                conn, Path(ordner), auto_suggest_by_genre=self.auto_genre_var.get()
+            )
         self.refresh_moods()
         self.refresh_songs()
-        messagebox.showinfo(
-            "Import abgeschlossen", f"{added} Titel importiert, {skipped} bereits vorhanden."
+
+        text = (
+            f"{ergebnis['added']} Titel importiert, "
+            f"{ergebnis['skipped']} bereits vorhanden."
         )
+        if ergebnis["album_fixed"]:
+            text += (
+                f"\n{ergebnis['album_fixed']} davon hatten eine Stimmung im Album-Feld "
+                "- automatisch korrigiert."
+            )
+        if ergebnis["genre_suggested"]:
+            text += (
+                f"\n{ergebnis['genre_suggested']} davon bekamen anhand des Genre-Tags "
+                "einen Stimmungs-Vorschlag."
+            )
+        messagebox.showinfo("Import abgeschlossen", text)
+
+    def fix_album_moods(self):
+        with db.connect(self.db_path) as conn:
+            aenderungen = moods.fix_existing_album_moods(conn)
+        self.refresh_moods()
+        self.refresh_songs()
+        if not aenderungen:
+            messagebox.showinfo(
+                "Nichts zu korrigieren", "Keine Titel mit einer Stimmung im Album-Feld gefunden."
+            )
+            return
+        details = "\n".join(f"- '{titel}' -> {stimmung}" for _, titel, stimmung in aenderungen)
+        messagebox.showinfo(
+            "Korrektur abgeschlossen", f"{len(aenderungen)} Titel korrigiert:\n{details}"
+        )
+
+    def suggest_mood(self):
+        if self.selected_song_id is None:
+            messagebox.showwarning("Kein Titel ausgewählt", "Bitte zuerst einen Titel in der Liste wählen.")
+            return
+        vorschlaege = moods.suggest_moods_for_genre(self.detail_genre)
+        if not vorschlaege:
+            messagebox.showinfo(
+                "Kein Vorschlag möglich",
+                "Für dieses Genre gibt es keine Zuordnung "
+                f"(Genre: {self.detail_genre or 'unbekannt'}).\n"
+                "Bitte die Stimmung manuell eintragen.",
+            )
+            return
+        with db.connect(self.db_path) as conn:
+            for mood_name in vorschlaege:
+                moods.assign_mood(conn, self.selected_song_id, mood_name)
+        self.refresh_moods()
+        self.refresh_songs()
+        self.on_select_song()
+
+    # ----------------------------------------------------------- Wiedergabe
+    def play_selected(self):
+        if self.selected_song_id is None:
+            messagebox.showwarning("Kein Titel ausgewählt", "Bitte zuerst einen Titel in der Liste wählen.")
+            return
+        mixer = _get_mixer()
+        if mixer is None:
+            messagebox.showerror(
+                "Wiedergabe nicht verfügbar",
+                "Für die Wiedergabe wird die Bibliothek 'pygame' benötigt.\n"
+                "Bitte 'pip install -r requirements.txt' ausführen.",
+            )
+            return
+        filepath = self.detail_path_var.get()
+        if not filepath or not Path(filepath).exists():
+            messagebox.showerror("Datei fehlt", "Die Audiodatei wurde auf der Festplatte nicht gefunden.")
+            return
+        try:
+            mixer.music.stop()
+            mixer.music.load(filepath)
+            mixer.music.play()
+            self.playback_status_var.set(f"▶ Spielt: {self.detail_title_var.get()}")
+        except Exception as exc:
+            self.playback_status_var.set("")
+            messagebox.showerror(
+                "Wiedergabe fehlgeschlagen",
+                f"Konnte die Datei nicht abspielen (Format evtl. nicht unterstützt):\n{exc}",
+            )
+
+    def stop_playback(self):
+        mixer = _get_mixer()
+        if mixer is not None:
+            mixer.music.stop()
+        self.playback_status_var.set("")
 
     def add_mood(self):
         if self.selected_song_id is None:
