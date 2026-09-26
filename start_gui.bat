@@ -25,17 +25,40 @@ if not defined PYCMD (
 )
 
 rem --- Abhaengigkeiten pruefen und bei Bedarf installieren (dafuer "python" statt "pythonw") ---
+rem Jede Bibliothek wird einzeln installiert: schlaegt eine fehl (z.B. pygame-ce
+rem ohne fertiges Paket fuer diese Python-Version), startet die App trotzdem -
+rem nur die jeweilige Zusatzfunktion fehlt dann.
 set "CHECKCMD=%PYCMD%"
 if "%PYCMD%"=="pythonw" set "CHECKCMD=python"
-%CHECKCMD% -c "import mutagen, pygame" >nul 2>nul
+set "WARNUNG=0"
+
+%CHECKCMD% -c "import mutagen" >nul 2>nul
 if errorlevel 1 (
-    echo Installiere benoetigte Bibliotheken, einen Moment ...
-    %CHECKCMD% -m pip install -r requirements.txt
+    echo Installiere 'mutagen' ^(fuer Titel/Interpret/Album aus den Dateien^) ...
+    %CHECKCMD% -m pip install mutagen >nul
     if errorlevel 1 (
-        echo Installation fehlgeschlagen. Bitte pruefe deine Internetverbindung.
-        pause
-        exit /b 1
+        echo Warnung: 'mutagen' konnte nicht installiert werden.
+        echo Titel werden dann nur anhand des Dateinamens erkannt.
+        set "WARNUNG=1"
     )
+)
+
+%CHECKCMD% -c "import pygame" >nul 2>nul
+if errorlevel 1 (
+    echo Installiere 'pygame-ce' ^(fuer Abspielen/Stopp^) ...
+    %CHECKCMD% -m pip install pygame-ce >nul
+    if errorlevel 1 (
+        echo Warnung: 'pygame-ce' konnte nicht installiert werden.
+        echo Abspielen/Stopp ist dann nicht verfuegbar, der Rest der App funktioniert trotzdem.
+        echo Tipp: "python -m pip install --upgrade pip" ausfuehren und diese Datei erneut starten.
+        set "WARNUNG=1"
+    )
+)
+
+if "%WARNUNG%"=="1" (
+    echo.
+    echo Die App startet trotzdem gleich - dies ist nur eine Information.
+    pause
 )
 
 %CHECKCMD% -c "import tkinter" >nul 2>nul

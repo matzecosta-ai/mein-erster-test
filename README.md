@@ -19,7 +19,11 @@ pip install -r requirements.txt
 (`mutagen` liest die ID3/Tag-Metadaten aus den Dateien; ohne diese
 Bibliothek funktioniert das Programm trotzdem, verwendet dann aber nur
 den Dateinamen als Titel. `tkinter` für die grafische Oberfläche ist bei
-der Standard-Windows-Installation von python.org bereits dabei.)
+der Standard-Windows-Installation von python.org bereits dabei. `pygame-ce`
+wird nur für Abspielen/Stopp gebraucht; falls die Installation fehlschlägt
+(z.B. "Failed to build wheel" bei sehr neuen Python-Versionen), funktioniert
+der Rest der App trotzdem - `start_gui.bat` installiert jede Bibliothek
+einzeln und startet auch, wenn eine davon nicht klappt.)
 
 ## Grafische Oberfläche (Windows)
 
