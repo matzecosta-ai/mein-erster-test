@@ -1,12 +1,15 @@
 """Grafische Oberfläche für das Musikarchiv (ein einziges Fenster)."""
 
+import sys
 import tkinter as tk
 from pathlib import Path
 from tkinter import filedialog, messagebox, ttk
 
 from . import db, importer, moods, organizer
 
-ICON_PATH = Path(__file__).resolve().parent.parent / "icon.ico"
+APP_DIR = Path(__file__).resolve().parent.parent
+ICON_ICO_PATH = APP_DIR / "icon.ico"
+ICON_PNG_PATH = APP_DIR / "icon.png"
 ALLE_STIMMUNGEN = "(alle Stimmungen)"
 
 # Audiowiedergabe wird erst beim ersten Abspielen geladen, damit die App
@@ -39,10 +42,7 @@ class MusikArchivApp(tk.Tk):
         self.title("Musikarchiv")
         self.geometry("1100x650")
         self.minsize(850, 500)
-        try:
-            self.iconbitmap(str(ICON_PATH))
-        except Exception:
-            pass
+        self._set_icon()
 
         self.selected_song_id = None
         self.detail_genre = None
@@ -50,6 +50,18 @@ class MusikArchivApp(tk.Tk):
         self.refresh_moods()
         self.refresh_songs()
         self.protocol("WM_DELETE_WINDOW", self._on_close)
+
+    def _set_icon(self):
+        # Windows kennt .ico ueber iconbitmap; macOS/Linux brauchen ein
+        # Pixelbild (.png) ueber iconphoto.
+        try:
+            if sys.platform.startswith("win"):
+                self.iconbitmap(str(ICON_ICO_PATH))
+            elif ICON_PNG_PATH.exists():
+                self._icon_image = tk.PhotoImage(file=str(ICON_PNG_PATH))
+                self.iconphoto(True, self._icon_image)
+        except Exception:
+            pass
 
     def _on_close(self):
         mixer = _get_mixer()

@@ -25,10 +25,17 @@ wird nur für Abspielen/Stopp gebraucht; falls die Installation fehlschlägt
 der Rest der App trotzdem - `start_gui.bat` installiert jede Bibliothek
 einzeln und startet auch, wenn eine davon nicht klappt.)
 
-## Grafische Oberfläche (Windows)
+## Grafische Oberfläche
 
-Einfach `start_gui.bat` per Doppelklick starten. Es öffnet sich **ein**
-Fenster mit:
+- **Windows:** `start_gui.bat` per Doppelklick starten.
+- **macOS:** `start_gui.command` per Doppelklick starten. Falls macOS beim
+  ersten Start "kann nicht geöffnet werden, da der Entwickler nicht
+  verifiziert werden kann" meldet: Rechtsklick auf die Datei → "Öffnen" →
+  im Dialog nochmal "Öffnen" bestätigen (nur beim allerersten Mal nötig).
+  Falls Tkinter fehlt: `brew install python-tk` (bei Python von
+  python.org ist es schon dabei).
+
+Es öffnet sich **ein** Fenster mit:
 
 - einer Liste aller importierten Titel (Titel, Interpret, Album, Dauer,
   Stimmungen) – erscheint automatisch, sobald ein Ordner importiert wurde
@@ -57,9 +64,13 @@ Fenster mit:
   und verschiebt sie automatisch zu den Stimmungen. Läuft ab sofort auch
   automatisch bei jedem neuen Import mit.
 
-Für ein Icon auf dem Desktop: `Verknuepfung_erstellen.bat` einmal per
-Doppelklick ausführen. Sie legt eine Verknüpfung "Musikarchiv" mit dem
-Icon (`icon.ico`) auf dem Desktop an, die direkt `start_gui.bat` öffnet.
+Für ein Icon auf dem Desktop:
+- **Windows:** `Verknuepfung_erstellen.bat` einmal per Doppelklick
+  ausführen. Legt eine Verknüpfung "Musikarchiv" mit Icon (`icon.ico`) auf
+  dem Desktop an, die direkt `start_gui.bat` öffnet.
+- **macOS:** `Verknuepfung_erstellen.command` einmal per Doppelklick
+  ausführen. Legt "Musikarchiv.app" mit Icon (`icon.icns`) auf dem
+  Schreibtisch an, die direkt `start_gui.command` öffnet.
 
 Die GUI lässt sich auch direkt starten mit:
 
@@ -70,8 +81,8 @@ python -m musikarchiv.gui
 ## Kommandozeile (Alternative)
 
 Statt der GUI kann auch weiterhin die Kommandozeile benutzt werden –
-entweder direkt mit `python -m musikarchiv ...` oder über das
-Text-Menü `start.bat`.
+entweder direkt mit `python -m musikarchiv ...` oder über das Text-Menü
+(`start.bat` unter Windows, `start.command` unter macOS).
 
 ### 1. Musik importieren
 
