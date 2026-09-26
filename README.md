@@ -1,8 +1,10 @@
 # Musikarchiv
 
-Ein kleines Kommandozeilen-Programm, um die eigene Musiksammlung zu
-katalogisieren, nach Titel oder Stimmung zu durchsuchen und die Dateien
-auf der Festplatte automatisch in Ordner zu sortieren.
+Ein Programm, um die eigene Musiksammlung zu katalogisieren, nach Titel
+oder Stimmung zu durchsuchen und die Dateien auf der Festplatte
+automatisch in Ordner zu sortieren. Es gibt eine grafische Oberfläche
+(ein einziges Fenster: Liste + Suche + Details) und wahlweise eine
+Kommandozeilen-Bedienung.
 
 Katalogisierung, Suche und Sortierung sind bewusst **ein** Programm mit
 einer gemeinsamen SQLite-Datenbank (`~/.musikarchiv/musikarchiv.db`),
@@ -16,20 +18,38 @@ pip install -r requirements.txt
 
 (`mutagen` liest die ID3/Tag-Metadaten aus den Dateien; ohne diese
 Bibliothek funktioniert das Programm trotzdem, verwendet dann aber nur
-den Dateinamen als Titel.)
+den Dateinamen als Titel. `tkinter` für die grafische Oberfläche ist bei
+der Standard-Windows-Installation von python.org bereits dabei.)
 
-## Benutzung
+## Grafische Oberfläche (Windows)
 
-### Windows: Startskript
+Einfach `start_gui.bat` per Doppelklick starten. Es öffnet sich **ein**
+Fenster mit:
 
-Unter Windows kann statt der Kommandozeilenbefehle einfach die Datei
-`start.bat` per Doppelklick gestartet werden. Sie prüft/installiert
-Python-Abhängigkeiten automatisch und führt danach per Menü durch alle
-Funktionen (Importieren, Stimmungen vergeben, Suchen, Sortieren).
+- einer Liste aller importierten Titel (Titel, Interpret, Album, Dauer,
+  Stimmungen) – erscheint automatisch, sobald ein Ordner importiert wurde
+- einem Suchfeld oben, das die Liste beim Tippen sofort nach Titel filtert
+- einem Stimmungs-Filter (Dropdown) daneben
+- einem Detailbereich rechts: beim Anklicken eines Titels werden dort die
+  Stimmungen angezeigt, hinzugefügt oder entfernt – direkt im selben Fenster
+- einem Bereich "Auf Festplatte sortieren" (Stimmung/Interpret, Kopieren/
+  Verschieben/Verknüpfen), der über einen Ordner-Auswahldialog sortiert
 
 Für ein Icon auf dem Desktop: `Verknuepfung_erstellen.bat` einmal per
 Doppelklick ausführen. Sie legt eine Verknüpfung "Musikarchiv" mit dem
-Icon (`icon.ico`) auf dem Desktop an, die direkt `start.bat` öffnet.
+Icon (`icon.ico`) auf dem Desktop an, die direkt `start_gui.bat` öffnet.
+
+Die GUI lässt sich auch direkt starten mit:
+
+```bash
+python -m musikarchiv.gui
+```
+
+## Kommandozeile (Alternative)
+
+Statt der GUI kann auch weiterhin die Kommandozeile benutzt werden –
+entweder direkt mit `python -m musikarchiv ...` oder über das
+Text-Menü `start.bat`.
 
 ### 1. Musik importieren
 

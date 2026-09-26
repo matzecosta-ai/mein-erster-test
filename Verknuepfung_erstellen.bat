@@ -4,12 +4,12 @@ chcp 65001 >nul
 title Musikarchiv - Verknuepfung erstellen
 
 set "SCRIPT_DIR=%~dp0"
-set "TARGET=%SCRIPT_DIR%start.bat"
+set "TARGET=%SCRIPT_DIR%start_gui.bat"
 set "ICON=%SCRIPT_DIR%icon.ico"
 set "SHORTCUT=%USERPROFILE%\Desktop\Musikarchiv.lnk"
 
 if not exist "%TARGET%" (
-    echo Konnte start.bat nicht finden. Bitte dieses Skript im selben Ordner ausfuehren.
+    echo Konnte start_gui.bat nicht finden. Bitte dieses Skript im selben Ordner ausfuehren.
     pause
     exit /b 1
 )
