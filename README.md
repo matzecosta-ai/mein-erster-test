@@ -27,6 +27,10 @@ Unter Windows kann statt der Kommandozeilenbefehle einfach die Datei
 Python-Abhängigkeiten automatisch und führt danach per Menü durch alle
 Funktionen (Importieren, Stimmungen vergeben, Suchen, Sortieren).
 
+Für ein Icon auf dem Desktop: `Verknuepfung_erstellen.bat` einmal per
+Doppelklick ausführen. Sie legt eine Verknüpfung "Musikarchiv" mit dem
+Icon (`icon.ico`) auf dem Desktop an, die direkt `start.bat` öffnet.
+
 ### 1. Musik importieren
 
 ```bash
