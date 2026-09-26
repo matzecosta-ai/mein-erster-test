@@ -20,6 +20,13 @@ den Dateinamen als Titel.)
 
 ## Benutzung
 
+### Windows: Startskript
+
+Unter Windows kann statt der Kommandozeilenbefehle einfach die Datei
+`start.bat` per Doppelklick gestartet werden. Sie prüft/installiert
+Python-Abhängigkeiten automatisch und führt danach per Menü durch alle
+Funktionen (Importieren, Stimmungen vergeben, Suchen, Sortieren).
+
 ### 1. Musik importieren
 
 ```bash
