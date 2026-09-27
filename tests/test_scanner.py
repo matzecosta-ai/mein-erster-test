@@ -62,3 +62,55 @@ def test_read_tags_bereinigt_titel_aus_dateinamen(tmp_path):
     datei = _make_wav(tmp_path, "01 Sonnenschein.wav")
     tags = scanner.read_tags(datei)
     assert tags["title"] == "Sonnenschein"
+
+
+@pytest.mark.parametrize(
+    "verlag,copyright_text,erwartet",
+    [
+        ("Sony Music (LC 06861)", None, "LC-06861"),
+        ("Warner Music LC-00982", None, "LC-00982"),
+        (None, "(P) 1998, LC12345 Universal", "LC-12345"),
+        ("Kein Labelcode hier", "Auch hier nicht", None),
+        (None, None, None),
+    ],
+)
+def test_extract_lc_nummer(verlag, copyright_text, erwartet):
+    assert scanner._extract_lc_nummer(verlag, copyright_text) == erwartet
+
+
+class _FakeInfo:
+    def __init__(self, length):
+        self.length = length
+
+
+class _FakeAudio:
+    def __init__(self, tags):
+        self.tags = tags
+        self.info = _FakeInfo(180)
+
+
+@pytest.mark.skipif(not scanner.HAS_MUTAGEN, reason="mutagen nicht installiert")
+def test_read_tags_liest_lc_nummer_aus_verlagsfeld(tmp_path, monkeypatch):
+    datei = _make_wav(tmp_path, "Testlied.wav")
+    fake_tags = {
+        "title": ["Testlied"],
+        "artist": ["Band"],
+        "organization": ["Sony Music (LC 06861)"],
+    }
+    monkeypatch.setattr(scanner, "_load_mutagen", lambda _fp: _FakeAudio(fake_tags))
+
+    tags = scanner.read_tags(datei)
+    assert tags["lc_nummer"] == "LC-06861"
+
+
+@pytest.mark.skipif(not scanner.HAS_MUTAGEN, reason="mutagen nicht installiert")
+def test_read_tags_ohne_lc_nummer_im_verlag_versucht_copyright(tmp_path, monkeypatch):
+    datei = _make_wav(tmp_path, "Testlied.wav")
+    fake_tags = {
+        "organization": ["Irgendein Label ohne Code"],
+        "copyright": ["(P) 2010 LC-99887 Beispiel GmbH"],
+    }
+    monkeypatch.setattr(scanner, "_load_mutagen", lambda _fp: _FakeAudio(fake_tags))
+
+    tags = scanner.read_tags(datei)
+    assert tags["lc_nummer"] == "LC-99887"

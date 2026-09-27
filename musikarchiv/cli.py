@@ -139,8 +139,9 @@ def _print_songs(conn, rows):
         song_moods = organizer._mood_names(conn, song["id"])
         mood_str = ", ".join(song_moods) or "-"
         jahr = f" ({song['year']})" if song["year"] else ""
+        lc = f" [{song['lc_nummer']}]" if song["lc_nummer"] else ""
         print(
-            f"[{song['id']}] {song['title']}{jahr} - {song['artist'] or '?'} | "
+            f"[{song['id']}] {song['title']}{jahr}{lc} - {song['artist'] or '?'} | "
             f"Stimmungen: {mood_str}"
         )
         print(f"      Datei: {song['filepath']}")

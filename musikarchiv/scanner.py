@@ -50,6 +50,22 @@ def _extract_year(date_text):
     return year if 1000 <= year <= 9999 else None
 
 
+_LC_NUMMER_RE = re.compile(r"LC[\s\-]?(\d{4,6})", re.IGNORECASE)
+
+
+def _extract_lc_nummer(*texte):
+    """Sucht in den gegebenen Texten (z.B. Verlag/Publisher-Feld) nach einer
+    LC-Nummer (Labelcode, Format "LC 12345" bzw. "LC-12345") und gibt sie
+    normalisiert als "LC-12345" zurueck."""
+    for text in texte:
+        if not text:
+            continue
+        match = _LC_NUMMER_RE.search(text)
+        if match:
+            return f"LC-{match.group(1)}"
+    return None
+
+
 _TRACKNUMMER_RE = re.compile(r"^\s*\(?\[?(\d{1,3})\)?\]?(?P<sep>[\s._-]+)")
 
 
@@ -80,14 +96,15 @@ def strip_track_number(title):
 
 
 def read_tags(filepath: Path):
-    """Liest Titel/Interpret/Album/Genre/Jahr/Dauer aus den Metadaten;
-    fällt auf den (bereinigten) Dateinamen zurück, falls mutagen fehlt
-    oder die Datei keine Tags hat."""
+    """Liest Titel/Interpret/Album/Genre/Jahr/LC-Nummer/Dauer aus den
+    Metadaten; fällt auf den (bereinigten) Dateinamen zurück, falls
+    mutagen fehlt oder die Datei keine Tags hat."""
     title = filepath.stem
     artist = None
     album = None
     genre = None
     year = None
+    lc_nummer = None
     duration_sec = None
 
     audio = _load_mutagen(filepath)
@@ -98,6 +115,11 @@ def read_tags(filepath: Path):
             album = _first(audio.tags.get("album"))
             genre = _first(audio.tags.get("genre"))
             year = _extract_year(_first(audio.tags.get("date")))
+            # Die LC-Nummer (Labelcode) steht ueblicherweise im
+            # Verlag/Publisher-Feld, manchmal auch im Copyright-Vermerk.
+            verlag = _first(audio.tags.get("organization"))
+            copyright_text = _first(audio.tags.get("copyright"))
+            lc_nummer = _extract_lc_nummer(verlag, copyright_text)
         if audio.info is not None and hasattr(audio.info, "length"):
             duration_sec = int(audio.info.length)
 
@@ -109,6 +131,7 @@ def read_tags(filepath: Path):
         "album": album,
         "genre": genre,
         "year": year,
+        "lc_nummer": lc_nummer,
         "duration_sec": duration_sec,
     }
 

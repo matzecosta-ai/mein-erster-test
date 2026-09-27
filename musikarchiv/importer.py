@@ -60,14 +60,15 @@ def import_directory(conn, directory, auto_suggest_by_genre=True, on_progress=No
             album = None
 
         cursor = conn.execute(
-            "INSERT INTO songs (title, artist, album, genre, year, filepath, duration_sec) "
-            "VALUES (?, ?, ?, ?, ?, ?, ?)",
+            "INSERT INTO songs (title, artist, album, genre, year, lc_nummer, filepath, duration_sec) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
             (
                 tags["title"],
                 tags["artist"],
                 album,
                 tags["genre"],
                 tags["year"],
+                tags["lc_nummer"],
                 filepath_str,
                 tags["duration_sec"],
             ),

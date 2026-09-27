@@ -38,8 +38,8 @@ einzeln und startet auch, wenn eine davon nicht klappt.)
 Es öffnet sich **ein** Fenster mit:
 
 - einer Liste aller importierten Titel (Titel, Interpret, Jahr, Album,
-  Dauer, Stimmungen) – erscheint automatisch, sobald ein Ordner
-  importiert wurde
+  LC-Nummer, Dauer, Stimmungen) – erscheint automatisch, sobald ein
+  Ordner importiert wurde
 - **Import läuft im Hintergrund** mit Fortschrittsbalken (Datei X von Y):
   friert bei sehr großen Sammlungen (mehrere zehntausend Dateien, egal wie
   viel GB) nicht ein, sondern zeigt live an, wie weit der Import ist
@@ -80,6 +80,11 @@ Es öffnet sich **ein** Fenster mit:
 - **Erscheinungsjahr**: wird beim Import automatisch aus den Metadaten
   gelesen und in der Liste sowie im Detailbereich angezeigt (sofern die
   Datei ein Datums-Tag enthält).
+- **LC-Nummer** (Labelcode): wird beim Import automatisch erkannt und in
+  Liste sowie Detailbereich angezeigt. Gelesen wird das Verlag/Publisher-
+  Feld der Datei (und als Rückfallebene das Copyright-Feld) nach einem
+  Muster wie "LC 06861" oder "LC-06861" durchsucht. Steht die LC-Nummer
+  bei deinen Dateien in einem anderen Feld, sag Bescheid.
 - **Nur echte Musikdateien**: Dateien mit passender Endung (.mp3 usw.),
   die sich nicht als echte Audiodatei lesen lassen (falsch benannt,
   beschädigt, o.ä.), werden beim Import übersprungen statt fälschlich

@@ -71,6 +71,7 @@ def test_import_directory_erkennt_stimmung_im_album_feld(tmp_path, monkeypatch):
             "album": "Spannung",
             "genre": None,
             "year": None,
+            "lc_nummer": None,
             "duration_sec": None,
         },
         str(datei_normal.resolve()): {
@@ -79,6 +80,7 @@ def test_import_directory_erkennt_stimmung_im_album_feld(tmp_path, monkeypatch):
             "album": "Echtes Album",
             "genre": "Metal",
             "year": 2005,
+            "lc_nummer": "LC-06861",
             "duration_sec": None,
         },
     }
@@ -105,6 +107,7 @@ def test_import_directory_erkennt_stimmung_im_album_feld(tmp_path, monkeypatch):
         song2 = conn.execute("SELECT * FROM songs WHERE title='Song 2'").fetchone()
         assert song2["album"] == "Echtes Album"
         assert song2["year"] == 2005
+        assert song2["lc_nummer"] == "LC-06861"
         assert set(organizer._mood_names(conn, song2["id"])) == {"Wut", "Spannung"}
 
 
@@ -123,6 +126,7 @@ def test_import_directory_ignoriert_ungueltige_audiodateien(tmp_path, monkeypatc
             "album": None,
             "genre": None,
             "year": None,
+            "lc_nummer": None,
             "duration_sec": None,
         }
 
@@ -168,6 +172,8 @@ def test_datenbank_migration_ergaenzt_genre_spalte(tmp_path):
         columns = {r["name"] for r in new_conn.execute("PRAGMA table_info(songs)").fetchall()}
         assert "genre" in columns
         assert "year" in columns
+        assert "lc_nummer" in columns
         row = new_conn.execute("SELECT * FROM songs WHERE title='Alter Titel'").fetchone()
         assert row["genre"] is None
         assert row["year"] is None
+        assert row["lc_nummer"] is None
