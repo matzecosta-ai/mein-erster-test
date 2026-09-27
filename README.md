@@ -40,6 +40,9 @@ Es öffnet sich **ein** Fenster mit:
 - einer Liste aller importierten Titel (Titel, Interpret, Jahr, Album,
   Dauer, Stimmungen) – erscheint automatisch, sobald ein Ordner
   importiert wurde
+- **Import läuft im Hintergrund** mit Fortschrittsbalken (Datei X von Y):
+  friert bei sehr großen Sammlungen (mehrere zehntausend Dateien, egal wie
+  viel GB) nicht ein, sondern zeigt live an, wie weit der Import ist
 - einem Suchfeld oben, das die Liste beim Tippen sofort nach Titel filtert
 - einem Stimmungs-Filter (Dropdown) daneben
 - **Sortierbare Spalten**: Klick auf "Titel", "Interpret", "Album" oder

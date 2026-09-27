@@ -5,7 +5,7 @@ from pathlib import Path
 from . import moods, scanner
 
 
-def import_directory(conn, directory, auto_suggest_by_genre=True):
+def import_directory(conn, directory, auto_suggest_by_genre=True, on_progress=None):
     """Importiert alle Musikdateien aus 'directory'.
 
     Dateien mit passender Endung, die sich nicht als echte Audiodatei lesen
@@ -16,6 +16,10 @@ def import_directory(conn, directory, auto_suggest_by_genre=True):
     steht (z.B. "Spannung"), und ordnet sie stattdessen den Stimmungen zu.
     Optional werden zusaetzlich Stimmungs-Vorschlaege anhand des Genre-Tags
     vergeben.
+
+    'on_progress', falls angegeben, wird nach jeder Datei aufgerufen als
+    on_progress(bearbeitet, gesamt, dateiname) - fuer Fortschrittsanzeigen
+    bei sehr grossen Musiksammlungen.
 
     Gibt ein Dict mit Zaehlwerten zurueck: added, skipped, ignoriert
     (keine echte Audiodatei), album_fixed, genre_suggested.
@@ -29,7 +33,13 @@ def import_directory(conn, directory, auto_suggest_by_genre=True):
         "genre_suggested": 0,
     }
 
-    for filepath in scanner.find_audio_files(Path(directory)):
+    dateien = list(scanner.find_audio_files(Path(directory)))
+    gesamt = len(dateien)
+
+    for index, filepath in enumerate(dateien, start=1):
+        if on_progress is not None:
+            on_progress(index, gesamt, filepath.name)
+
         filepath_str = str(filepath.resolve())
         exists = conn.execute(
             "SELECT 1 FROM songs WHERE filepath = ?", (filepath_str,)

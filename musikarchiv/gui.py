@@ -1,6 +1,8 @@
 """Grafische Oberfläche für das Musikarchiv (ein einziges Fenster)."""
 
+import queue
 import sys
+import threading
 import tkinter as tk
 from pathlib import Path
 from tkinter import filedialog, messagebox, ttk
@@ -392,10 +394,80 @@ class MusikArchivApp(tk.Tk):
         ordner = filedialog.askdirectory(title="Musik-Ordner wählen")
         if not ordner:
             return
-        with db.connect(self.db_path) as conn:
-            ergebnis = importer.import_directory(
-                conn, Path(ordner), auto_suggest_by_genre=self.auto_genre_var.get()
-            )
+        self._import_starten(ordner)
+
+    def _import_starten(self, ordner):
+        fenster = tk.Toplevel(self)
+        fenster.title("Import läuft…")
+        fenster.resizable(False, False)
+        fenster.transient(self)
+        fenster.protocol("WM_DELETE_WINDOW", lambda: None)  # kein Abbrechen mitten im Import
+
+        ttk.Label(
+            fenster, text="Musik wird importiert, bitte warten…", padding=(16, 16, 16, 4)
+        ).pack()
+        fortschritt_var = tk.DoubleVar(value=0)
+        ttk.Progressbar(
+            fenster, orient="horizontal", length=380, mode="determinate",
+            variable=fortschritt_var, maximum=100,
+        ).pack(padx=16, pady=(0, 6))
+        status_var = tk.StringVar(value="Suche Musikdateien …")
+        ttk.Label(fenster, textvariable=status_var, padding=(16, 0, 16, 16)).pack()
+
+        fenster.update_idletasks()
+        x = self.winfo_rootx() + (self.winfo_width() - fenster.winfo_width()) // 2
+        y = self.winfo_rooty() + (self.winfo_height() - fenster.winfo_height()) // 2
+        fenster.geometry(f"+{max(x, 0)}+{max(y, 0)}")
+        fenster.grab_set()  # Hauptfenster waehrenddessen blockieren (verhindert parallele DB-Zugriffe)
+
+        out_queue = queue.Queue()
+        auto_genre = self.auto_genre_var.get()
+        thread = threading.Thread(
+            target=self._import_worker, args=(ordner, auto_genre, out_queue), daemon=True
+        )
+        thread.start()
+        self.after(80, self._import_poll, fenster, fortschritt_var, status_var, out_queue)
+
+    def _import_worker(self, ordner, auto_genre, out_queue):
+        try:
+            with db.connect(self.db_path) as conn:
+                def fortschritt(index, gesamt, dateiname):
+                    out_queue.put(("progress", index, gesamt, dateiname))
+
+                ergebnis = importer.import_directory(
+                    conn, Path(ordner), auto_suggest_by_genre=auto_genre, on_progress=fortschritt
+                )
+            out_queue.put(("done", ergebnis))
+        except Exception as exc:
+            out_queue.put(("error", str(exc)))
+
+    def _import_poll(self, fenster, fortschritt_var, status_var, out_queue):
+        try:
+            while True:
+                nachricht = out_queue.get_nowait()
+                art = nachricht[0]
+                if art == "progress":
+                    _, index, gesamt, dateiname = nachricht
+                    prozent = (index / gesamt * 100) if gesamt else 100
+                    fortschritt_var.set(prozent)
+                    status_var.set(f"{index} von {gesamt}: {dateiname}")
+                elif art == "done":
+                    fenster.grab_release()
+                    fenster.destroy()
+                    self._import_abgeschlossen(nachricht[1])
+                    return
+                elif art == "error":
+                    fenster.grab_release()
+                    fenster.destroy()
+                    messagebox.showerror(
+                        "Import fehlgeschlagen", f"Beim Import ist ein Fehler aufgetreten:\n{nachricht[1]}"
+                    )
+                    return
+        except queue.Empty:
+            pass
+        self.after(80, self._import_poll, fenster, fortschritt_var, status_var, out_queue)
+
+    def _import_abgeschlossen(self, ergebnis):
         self.refresh_moods()
         self.refresh_songs()
 

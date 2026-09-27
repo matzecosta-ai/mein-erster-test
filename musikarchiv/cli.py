@@ -7,9 +7,16 @@ SUGGESTED_MOODS = moods.SUGGESTED_MOODS
 
 
 def cmd_import(args):
+    def fortschritt(index, gesamt, dateiname):
+        if gesamt and (index == gesamt or index % 500 == 0):
+            print(f"  ... {index}/{gesamt} Dateien verarbeitet")
+
     with db.connect(args.db) as conn:
         ergebnis = importer.import_directory(
-            conn, args.ordner, auto_suggest_by_genre=not args.kein_genre_vorschlag
+            conn,
+            args.ordner,
+            auto_suggest_by_genre=not args.kein_genre_vorschlag,
+            on_progress=fortschritt,
         )
         print(f"{ergebnis['added']} Titel importiert, {ergebnis['skipped']} bereits vorhanden.")
         if ergebnis["ignoriert"]:

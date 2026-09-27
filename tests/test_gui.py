@@ -1,3 +1,6 @@
+import struct
+import time
+import wave
 from pathlib import Path
 
 import pytest
@@ -17,6 +20,16 @@ def _app_or_skip(db_path):
         return gui.MusikArchivApp(db_path=db_path)
     except tk.TclError:
         pytest.skip("Kein Display verfuegbar (z.B. headless ohne Xvfb)")
+
+
+def _make_wav(path: Path, name: str) -> Path:
+    f = path / name
+    with wave.open(str(f), "w") as w:
+        w.setnchannels(1)
+        w.setsampwidth(2)
+        w.setframerate(8000)
+        w.writeframes(struct.pack("<10h", *([0] * 10)))
+    return f
 
 
 def _seed_songs(db_path, tmp_path):
@@ -250,6 +263,63 @@ def test_spalten_sortierung_per_klick_auf_kopfzeile(tmp_path):
         assert interpreten == ["Band B", "Band A"]
     finally:
         app.destroy()
+
+
+def test_import_folder_laeuft_im_hintergrund_mit_fortschritt(tmp_path, monkeypatch):
+    musik_ordner = tmp_path / "musik"
+    musik_ordner.mkdir()
+    for i in range(5):
+        _make_wav(musik_ordner, f"Lied{i}.wav")
+
+    db_path = tmp_path / "test.db"
+    app = _app_or_skip(db_path)
+    app.update()
+
+    meldungen = []
+    monkeypatch.setattr(
+        gui.messagebox, "showinfo", lambda titel, text: meldungen.append(text)
+    )
+
+    try:
+        app._import_starten(str(musik_ordner))
+
+        # Solange der Hintergrund-Thread laeuft, muss die Oberflaeche
+        # weiter auf Ereignisse reagieren (nicht eingefroren).
+        deadline = time.time() + 10
+        while time.time() < deadline and not meldungen:
+            app.update()
+            time.sleep(0.02)
+
+        assert meldungen, "Import wurde nicht innerhalb der erwarteten Zeit abgeschlossen"
+        assert "5 Titel importiert" in meldungen[0]
+
+        with db.connect(db_path) as conn:
+            anzahl = conn.execute("SELECT COUNT(*) as c FROM songs").fetchone()["c"]
+        assert anzahl == 5
+        assert len(app.tree.get_children()) == 5
+    finally:
+        app.destroy()
+
+
+def test_import_folder_fortschritt_callback_bei_vielen_dateien(tmp_path):
+    from musikarchiv import importer
+
+    musik_ordner = tmp_path / "musik"
+    musik_ordner.mkdir()
+    for i in range(12):
+        _make_wav(musik_ordner, f"Lied{i:02d}.wav")
+
+    aufrufe = []
+    db_path = tmp_path / "test.db"
+    with db.connect(db_path) as conn:
+        importer.import_directory(
+            conn, musik_ordner, on_progress=lambda i, g, name: aufrufe.append((i, g, name))
+        )
+
+    assert len(aufrufe) == 12
+    assert aufrufe[0][0] == 1
+    assert aufrufe[-1] == (12, 12, aufrufe[-1][2])
+    assert all(gesamt == 12 for _, gesamt, _ in aufrufe)
 
 
 def test_organize_sortiert_dateien(tmp_path):
