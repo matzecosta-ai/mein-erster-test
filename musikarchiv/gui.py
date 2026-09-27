@@ -29,6 +29,19 @@ SPALTEN_BESCHRIFTUNG = {
     "stimmungen": "Stimmungen",
 }
 
+# Dieselbe Idee fuer die Album-Ansicht (eine Zeile pro Album statt pro Titel).
+ALBUM_SORTIERBARE_SPALTEN = {
+    "album": "album_anzeige",
+    "interpret": "artist",
+    "stimmungen": "moods",
+}
+ALBUM_SPALTEN_BESCHRIFTUNG = {
+    "album": "Album",
+    "interpret": "Interpret",
+    "stimmungen": "Stimmungen",
+}
+KEIN_ALBUM = "(kein Album)"
+
 # Audiowiedergabe wird erst beim ersten Abspielen geladen, damit die App
 # auch ohne installiertes 'pygame' startet (dann funktioniert nur Play/Stopp nicht).
 _mixer = None
@@ -66,6 +79,9 @@ class MusikArchivApp(tk.Tk):
         self.detail_genre = None
         self.sort_column = "titel"
         self.sort_reverse = False
+        self.sort_column_album = "album"
+        self.sort_reverse_album = False
+        self.album_filter = None  # (artist_or_None, album_or_None), aktiv nach "Titel anzeigen"
         self._build_widgets()
         self.refresh_moods()
         self.refresh_songs()
@@ -109,16 +125,36 @@ class MusikArchivApp(tk.Tk):
             text="Stimmung nach Genre vorschlagen",
             variable=self.auto_genre_var,
         ).pack(side="left", padx=(0, 8))
-        ttk.Button(
-            toolbar, text="Album-Stimmungen korrigieren", command=self.fix_album_moods
-        ).pack(side="left", padx=(0, 8))
+
+        werkzeuge_menu = tk.Menu(toolbar, tearoff=False)
+        werkzeuge_menu.add_command(
+            label="Album-Stimmungen korrigieren", command=self.fix_album_moods
+        )
+        werkzeuge_menu.add_command(
+            label="Chart-Hits markieren", command=self.tag_chart_hits
+        )
+        ttk.Menubutton(toolbar, text="Werkzeuge ▾", menu=werkzeuge_menu).pack(
+            side="left", padx=(0, 8)
+        )
+
         ttk.Button(
             toolbar, text="Ausgewählte löschen", command=self.delete_selected
         ).pack(side="left", padx=(0, 16))
 
+        ttk.Label(toolbar, text="Ansicht:").pack(side="left")
+        self.view_mode_var = tk.StringVar(value="titel")
+        ttk.Radiobutton(
+            toolbar, text="Titel", value="titel", variable=self.view_mode_var,
+            command=self.on_view_mode_changed,
+        ).pack(side="left")
+        ttk.Radiobutton(
+            toolbar, text="Alben", value="alben", variable=self.view_mode_var,
+            command=self.on_view_mode_changed,
+        ).pack(side="left", padx=(0, 16))
+
         ttk.Label(toolbar, text="Suche:").pack(side="left")
         self.search_var = tk.StringVar()
-        self.search_var.trace_add("write", lambda *_: self.refresh_songs())
+        self.search_var.trace_add("write", lambda *_: self._refresh_aktuelle_ansicht())
         search_entry = ttk.Entry(toolbar, textvariable=self.search_var, width=30)
         search_entry.pack(side="left", padx=(4, 16))
         search_entry.focus_set()
@@ -129,20 +165,34 @@ class MusikArchivApp(tk.Tk):
             toolbar, textvariable=self.mood_filter_var, state="readonly", width=20
         )
         self.mood_filter_box.pack(side="left", padx=(4, 0))
-        self.mood_filter_box.bind("<<ComboboxSelected>>", lambda *_: self.refresh_songs())
+        self.mood_filter_box.bind(
+            "<<ComboboxSelected>>", lambda *_: self._refresh_aktuelle_ansicht()
+        )
 
         self.status_var = tk.StringVar(value="")
         ttk.Label(toolbar, textvariable=self.status_var, foreground="#555").pack(
             side="right"
         )
 
+        self.filter_leiste = ttk.Frame(self, padding=(8, 0))
+        self.filter_leiste_label = ttk.Label(self.filter_leiste, text="", foreground="#555")
+        self.filter_leiste_label.pack(side="left")
+        ttk.Button(
+            self.filter_leiste, text="Filter aufheben ✕", command=self.album_filter_aufheben
+        ).pack(side="left", padx=(8, 0))
+
         main = ttk.Panedwindow(self, orient="horizontal")
+        self._panedwindow = main
         main.pack(side="top", fill="both", expand=True, padx=8, pady=(0, 8))
 
-        # --- Liste ---
-        list_frame = ttk.Frame(main)
+        # --- Liste (Titel-Ansicht und Album-Ansicht, nur eine davon sichtbar) ---
+        list_container = ttk.Frame(main)
+
+        self.title_list_frame = ttk.Frame(list_container)
         columns = ("titel", "interpret", "jahr", "album", "lc_nummer", "dauer", "stimmungen")
-        self.tree = ttk.Treeview(list_frame, columns=columns, show="headings", selectmode="extended")
+        self.tree = ttk.Treeview(
+            self.title_list_frame, columns=columns, show="headings", selectmode="extended"
+        )
         headings = {
             "titel": ("Titel", 220),
             "interpret": ("Interpret", 150),
@@ -158,7 +208,7 @@ class MusikArchivApp(tk.Tk):
             else:
                 self.tree.heading(col, text=label)
             self.tree.column(col, width=width, anchor="w")
-        vsb = ttk.Scrollbar(list_frame, orient="vertical", command=self.tree.yview)
+        vsb = ttk.Scrollbar(self.title_list_frame, orient="vertical", command=self.tree.yview)
         self.tree.configure(yscrollcommand=vsb.set)
         self.tree.pack(side="left", fill="both", expand=True)
         vsb.pack(side="right", fill="y")
@@ -166,7 +216,49 @@ class MusikArchivApp(tk.Tk):
         self.tree.bind("<Double-1>", lambda _e: self.play_selected())
         self.tree.bind("<Delete>", lambda _e: self.delete_selected())
         self.tree.bind("<BackSpace>", lambda _e: self.delete_selected())
-        main.add(list_frame, weight=3)
+        self.title_list_frame.pack(side="top", fill="both", expand=True)
+
+        self.album_list_frame = ttk.Frame(list_container)
+        album_button_row = ttk.Frame(self.album_list_frame)
+        album_button_row.pack(side="top", fill="x", pady=(0, 4))
+        ttk.Button(
+            album_button_row,
+            text="Titel dieses Albums anzeigen",
+            command=self.album_titel_anzeigen,
+        ).pack(side="left")
+
+        album_tree_frame = ttk.Frame(self.album_list_frame)
+        album_tree_frame.pack(side="top", fill="both", expand=True)
+        album_columns = ("album", "interpret", "jahr", "anzahl", "stimmungen")
+        self.album_tree = ttk.Treeview(
+            album_tree_frame, columns=album_columns, show="headings", selectmode="browse"
+        )
+        album_headings = {
+            "album": ("Album", 260),
+            "interpret": ("Interpret", 180),
+            "jahr": ("Jahr", 60),
+            "anzahl": ("Titel", 60),
+            "stimmungen": ("Stimmungen", 260),
+        }
+        for col, (label, width) in album_headings.items():
+            if col in ALBUM_SORTIERBARE_SPALTEN:
+                self.album_tree.heading(
+                    col, text=label, command=lambda c=col: self.sort_by_album(c)
+                )
+            else:
+                self.album_tree.heading(col, text=label)
+            self.album_tree.column(col, width=width, anchor="w")
+        album_vsb = ttk.Scrollbar(
+            album_tree_frame, orient="vertical", command=self.album_tree.yview
+        )
+        self.album_tree.configure(yscrollcommand=album_vsb.set)
+        self.album_tree.pack(side="left", fill="both", expand=True)
+        album_vsb.pack(side="right", fill="y")
+        self.album_tree.bind("<<TreeviewSelect>>", self.on_select_album)
+        self.album_tree.bind("<Double-1>", lambda _e: self.album_titel_anzeigen())
+        # album_list_frame wird erst bei Umschalten auf "Alben" gepackt
+
+        main.add(list_container, weight=3)
 
         # --- Detailbereich ---
         detail_frame = ttk.Frame(main, padding=10)
@@ -278,6 +370,44 @@ class MusikArchivApp(tk.Tk):
             text = label + pfeil if col == self.sort_column else label
             self.tree.heading(col, text=text)
 
+    def sort_by_album(self, column):
+        if self.sort_column_album == column:
+            self.sort_reverse_album = not self.sort_reverse_album
+        else:
+            self.sort_column_album = column
+            self.sort_reverse_album = False
+        self.refresh_albums()
+
+    def _update_album_sort_indicator(self):
+        pfeil = " ▼" if self.sort_reverse_album else " ▲"
+        for col, label in ALBUM_SPALTEN_BESCHRIFTUNG.items():
+            text = label + pfeil if col == self.sort_column_album else label
+            self.album_tree.heading(col, text=text)
+
+    def on_view_mode_changed(self):
+        # Auswahl aus der jeweils anderen Ansicht verwerfen, damit Aktionen wie
+        # "Ausgewählte löschen" nicht versehentlich auf eine veraltete Auswahl wirken.
+        # Wichtig: auch die Treeview-Auswahl selbst leeren, nicht nur die
+        # Python-Buchfuehrung - sonst kann ein noch ausstehendes
+        # <<TreeviewSelect>>-Ereignis die Auswahl spaeter wiederherstellen.
+        self.tree.selection_set(())
+        self.album_tree.selection_set(())
+        self._clear_detail()
+        if self.view_mode_var.get() == "alben":
+            self.title_list_frame.pack_forget()
+            self.album_list_frame.pack(side="top", fill="both", expand=True)
+            self.refresh_albums()
+        else:
+            self.album_list_frame.pack_forget()
+            self.title_list_frame.pack(side="top", fill="both", expand=True)
+            self.refresh_songs()
+
+    def _refresh_aktuelle_ansicht(self):
+        if self.view_mode_var.get() == "alben":
+            self.refresh_albums()
+        else:
+            self.refresh_songs()
+
     def refresh_moods(self):
         with db.connect(self.db_path) as conn:
             rows = conn.execute("SELECT name FROM moods ORDER BY name").fetchall()
@@ -308,6 +438,18 @@ class MusikArchivApp(tk.Tk):
                 "JOIN moods m2 ON m2.id = sm2.mood_id WHERE m2.name = ?)"
             )
             params.append(stimmung)
+        if self.album_filter is not None:
+            artist, album = self.album_filter
+            if artist is None:
+                conditions.append("s.artist IS NULL")
+            else:
+                conditions.append("s.artist = ?")
+                params.append(artist)
+            if album is None:
+                conditions.append("s.album IS NULL")
+            else:
+                conditions.append("s.album = ?")
+                params.append(album)
         if conditions:
             query += " WHERE " + " AND ".join(conditions)
         sort_ausdruck = SORTIERBARE_SPALTEN.get(self.sort_column, "s.title")
@@ -336,6 +478,15 @@ class MusikArchivApp(tk.Tk):
                 ),
             )
 
+        if self.album_filter is not None:
+            artist, album = self.album_filter
+            self.filter_leiste_label.config(
+                text=f"Gefiltert nach Album: '{album or KEIN_ALBUM}' von {artist or '?'}"
+            )
+            self.filter_leiste.pack(side="top", fill="x", before=self._panedwindow)
+        else:
+            self.filter_leiste.pack_forget()
+
         self.status_var.set(f"{len(rows)} Titel angezeigt")
         if self.selected_song_id is not None and str(self.selected_song_id) in self.tree.get_children():
             # Neuaufbau der Liste loescht die Treeview-Auswahl technisch;
@@ -343,6 +494,82 @@ class MusikArchivApp(tk.Tk):
             self.tree.selection_set(str(self.selected_song_id))
         else:
             self._clear_detail()
+
+    def refresh_albums(self):
+        suchtext = self.search_var.get().strip()
+        stimmung = self.mood_filter_var.get()
+
+        query = f"""
+            SELECT
+                s.artist AS artist,
+                s.album AS album,
+                COALESCE(s.album, '{KEIN_ALBUM}') AS album_anzeige,
+                COUNT(*) AS anzahl,
+                MIN(s.year) AS year,
+                GROUP_CONCAT(DISTINCT m.name) AS moods
+            FROM songs s
+            LEFT JOIN song_moods sm ON sm.song_id = s.id
+            LEFT JOIN moods m ON m.id = sm.mood_id
+        """
+        conditions = []
+        params = []
+        if suchtext:
+            conditions.append("(COALESCE(s.album, '') LIKE ? OR COALESCE(s.artist, '') LIKE ?)")
+            params.extend([f"%{suchtext}%", f"%{suchtext}%"])
+        if stimmung and stimmung != ALLE_STIMMUNGEN:
+            conditions.append(
+                "s.id IN (SELECT sm2.song_id FROM song_moods sm2 "
+                "JOIN moods m2 ON m2.id = sm2.mood_id WHERE m2.name = ?)"
+            )
+            params.append(stimmung)
+        if conditions:
+            query += " WHERE " + " AND ".join(conditions)
+        sort_ausdruck = ALBUM_SORTIERBARE_SPALTEN.get(self.sort_column_album, "album_anzeige")
+        richtung = "DESC" if self.sort_reverse_album else "ASC"
+        query += (
+            f" GROUP BY s.artist, s.album ORDER BY {sort_ausdruck} COLLATE NOCASE {richtung}"
+        )
+
+        with db.connect(self.db_path) as conn:
+            rows = conn.execute(query, params).fetchall()
+
+        self._update_album_sort_indicator()
+        self.album_tree.delete(*self.album_tree.get_children())
+        for index, row in enumerate(rows):
+            self.album_tree.insert(
+                "",
+                "end",
+                iid=str(index),
+                values=(
+                    row["album_anzeige"],
+                    row["artist"] or "",
+                    row["year"] or "",
+                    row["anzahl"],
+                    row["moods"] or "",
+                ),
+            )
+        self._album_rows = {str(i): (r["artist"], r["album"]) for i, r in enumerate(rows)}
+
+        self.status_var.set(f"{len(rows)} Alben angezeigt")
+
+    def on_select_album(self, _event=None):
+        pass  # keine Detailanzeige fuer Alben - "Titel dieses Albums anzeigen" nutzen
+
+    def album_titel_anzeigen(self):
+        selection = self.album_tree.selection()
+        if not selection:
+            messagebox.showwarning(
+                "Kein Album ausgewählt", "Bitte zuerst ein Album in der Liste wählen."
+            )
+            return
+        artist, album = self._album_rows[selection[0]]
+        self.album_filter = (artist, album)
+        self.view_mode_var.set("titel")
+        self.on_view_mode_changed()
+
+    def album_filter_aufheben(self):
+        self.album_filter = None
+        self.refresh_songs()
 
     def on_select_song(self, _event=None):
         selection = self.tree.selection()
@@ -476,7 +703,7 @@ class MusikArchivApp(tk.Tk):
 
     def _import_abgeschlossen(self, ergebnis):
         self.refresh_moods()
-        self.refresh_songs()
+        self._refresh_aktuelle_ansicht()
 
         text = (
             f"{ergebnis['added']} Titel importiert, "
@@ -496,6 +723,11 @@ class MusikArchivApp(tk.Tk):
             text += (
                 f"\n{ergebnis['genre_suggested']} davon bekamen anhand des Genre-Tags "
                 "einen Stimmungs-Vorschlag."
+            )
+        if ergebnis["chart_hits"]:
+            text += (
+                f"\n{ergebnis['chart_hits']} davon als Chart-Hit erkannt "
+                "(Stimmung 'Charts' vergeben)."
             )
         messagebox.showinfo("Import abgeschlossen", text)
 
@@ -544,7 +776,7 @@ class MusikArchivApp(tk.Tk):
         with db.connect(self.db_path) as conn:
             aenderungen = moods.fix_existing_album_moods(conn)
         self.refresh_moods()
-        self.refresh_songs()
+        self._refresh_aktuelle_ansicht()
         if not aenderungen:
             messagebox.showinfo(
                 "Nichts zu korrigieren", "Keine Titel mit einer Stimmung im Album-Feld gefunden."
@@ -553,6 +785,22 @@ class MusikArchivApp(tk.Tk):
         details = "\n".join(f"- '{titel}' -> {stimmung}" for _, titel, stimmung in aenderungen)
         messagebox.showinfo(
             "Korrektur abgeschlossen", f"{len(aenderungen)} Titel korrigiert:\n{details}"
+        )
+
+    def tag_chart_hits(self):
+        with db.connect(self.db_path) as conn:
+            betroffen = moods.tag_existing_chart_hits(conn)
+        self.refresh_moods()
+        self._refresh_aktuelle_ansicht()
+        if not betroffen:
+            messagebox.showinfo(
+                "Nichts gefunden",
+                "Keine Titel mit Chart-Hinweis im Album-Feld gefunden (oder bereits markiert).",
+            )
+            return
+        titel_liste = "\n".join(f"- {titel}" for _, titel in betroffen)
+        messagebox.showinfo(
+            "Chart-Hits markiert", f"{len(betroffen)} Titel als 'Charts' markiert:\n{titel_liste}"
         )
 
     def suggest_mood(self):

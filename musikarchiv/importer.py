@@ -21,8 +21,11 @@ def import_directory(conn, directory, auto_suggest_by_genre=True, on_progress=No
     on_progress(bearbeitet, gesamt, dateiname) - fuer Fortschrittsanzeigen
     bei sehr grossen Musiksammlungen.
 
+    Erkennt ausserdem Chart-Hinweise im Album-Feld (z.B. "... Charts",
+    "Chart-Hit") und vergibt dafuer zusaetzlich die Stimmung "Charts".
+
     Gibt ein Dict mit Zaehlwerten zurueck: added, skipped, ignoriert
-    (keine echte Audiodatei), album_fixed, genre_suggested.
+    (keine echte Audiodatei), album_fixed, genre_suggested, chart_hits.
     """
     known_moods = moods.get_known_moods(conn)
     ergebnis = {
@@ -31,6 +34,7 @@ def import_directory(conn, directory, auto_suggest_by_genre=True, on_progress=No
         "ignoriert": 0,
         "album_fixed": 0,
         "genre_suggested": 0,
+        "chart_hits": 0,
     }
 
     dateien = list(scanner.find_audio_files(Path(directory)))
@@ -54,9 +58,17 @@ def import_directory(conn, directory, auto_suggest_by_genre=True, on_progress=No
 
         tags = scanner.read_tags(filepath)
         album = tags["album"]
+        ist_chart_hit = moods.looks_like_chart_hit(album)
         stimmung_aus_album = None
-        if album and moods.looks_like_mood(album, known_moods):
+        if album and not ist_chart_hit and moods.looks_like_mood(album, known_moods):
+            # Nur pruefen, wenn es KEIN Chart-Hinweis ist: sonst wuerde ein
+            # echter (kurzer) Albumtitel wie "24K Magic Charts" faelschlich
+            # komplett als Stimmung verschluckt statt nur den Chart-Hinweis
+            # zusaetzlich zu vergeben.
             stimmung_aus_album = album.strip()
+            album = None
+        elif ist_chart_hit and moods.is_pure_chart_label(album):
+            # Album-Feld enthaelt nur den Chart-Hinweis, keinen echten Titel.
             album = None
 
         cursor = conn.execute(
@@ -87,5 +99,9 @@ def import_directory(conn, directory, auto_suggest_by_genre=True, on_progress=No
                 known_moods.add(mood_name)
             if vorschlaege:
                 ergebnis["genre_suggested"] += 1
+
+        if moods.looks_like_chart_hit(tags["album"]):
+            moods.assign_mood(conn, song_id, moods.CHART_MOOD_NAME)
+            ergebnis["chart_hits"] += 1
 
     return ergebnis

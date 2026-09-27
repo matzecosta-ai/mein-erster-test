@@ -49,6 +49,13 @@ Es öffnet sich **ein** Fenster mit:
   "Stimmungen" in der Kopfzeile sortiert die Liste danach; nochmaliger
   Klick auf dieselbe Spalte dreht die Reihenfolge um (▲/▼-Pfeil zeigt an,
   wonach gerade sortiert ist)
+- **Ansicht umschalten: Titel / Alben** (Umschalter oben in der
+  Werkzeugleiste): Die Album-Ansicht zeigt eine Zeile pro Album (mit
+  Interpret, Jahr, Anzahl Titel, Stimmungen) statt jeden einzelnen Titel –
+  praktisch, wenn ein Interpret mehrere Titel auf demselben Album hat.
+  Album auswählen und "Titel dieses Albums anzeigen" (oder Doppelklick)
+  wechselt zurück zur Titel-Ansicht, gefiltert auf genau dieses Album;
+  "Filter aufheben" zeigt wieder alle Titel.
 - **Mehrfachauswahl**: mehrere Titel mit Strg-Klick (macOS: Cmd-Klick)
   oder Umschalt-Klick auswählen, z.B. um sie gemeinsam zu löschen
 - **Titel löschen**: markierte Titel per Button "Ausgewählte löschen"
@@ -71,7 +78,7 @@ Es öffnet sich **ein** Fenster mit:
   erkennt, wäre ein eigenes, deutlich aufwendigeres Projekt (trainiertes
   Machine-Learning-Modell). Vorschläge lassen sich jederzeit über
   "Ausgewählte Stimmung entfernen" korrigieren.
-- **"Album-Stimmungen korrigieren"**: behebt nachträglich Titel, bei denen
+- **"Werkzeuge ▾" → "Album-Stimmungen korrigieren"**: behebt nachträglich Titel, bei denen
   eine Stimmung (z.B. "Spannung" oder "leichte Spannung") versehentlich im
   Album-Feld statt bei den Stimmungen gelandet ist – erkennt das an kurzen
   Album-Texten (max. 3 Wörter), die ein bekanntes Stimmungswort enthalten,
@@ -93,6 +100,12 @@ Es öffnet sich **ein** Fenster mit:
   oder "007. Titelname" wird beim Import "Sonnenschein" bzw. "Titelname".
   Titel, die zufällig mit einer Zahl beginnen (z.B. "1979" oder "24K
   Magic"), bleiben unangetastet.
+- **Chart-Hits erkennen**: enthält das Album-Feld einen Hinweis wie
+  "... Charts" oder "Chart-Hit" (üblicherweise am Ende), wird automatisch
+  zusätzlich die Stimmung "Charts" vergeben – das Album selbst bleibt
+  unverändert erhalten. So lässt sich über den Stimmungs-Filter oder die
+  Stimmungs-Suche gezielt nach Chart-Hits filtern. Für bereits importierte
+  Titel: "Werkzeuge ▾" → "Chart-Hits markieren".
 
 Für ein Icon auf dem Desktop:
 - **Windows:** `Verknuepfung_erstellen.bat` einmal per Doppelklick
@@ -184,6 +197,15 @@ python -m musikarchiv fix-album-moods
 
 (`import` fügt bei jedem Aufruf `--kein-genre-vorschlag` hinzu, um die
 automatischen Genre-Vorschläge für diesen Import abzuschalten.)
+
+### 7. Chart-Hits nachträglich markieren
+
+```bash
+python -m musikarchiv tag-charts
+```
+
+Vergibt die Stimmung "Charts" an bereits importierte Titel, deren
+Album-Feld einen Chart-Hinweis enthält (Album bleibt unverändert).
 
 ## Tests
 

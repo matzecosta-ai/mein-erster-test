@@ -34,6 +34,11 @@ def cmd_import(args):
                 f"  {ergebnis['genre_suggested']} davon bekamen anhand des Genre-Tags "
                 "einen Stimmungs-Vorschlag."
             )
+        if ergebnis["chart_hits"]:
+            print(
+                f"  {ergebnis['chart_hits']} davon als Chart-Hit erkannt "
+                "(Stimmung 'Charts' vergeben)."
+            )
 
 
 def cmd_fix_album_moods(args):
@@ -45,6 +50,17 @@ def cmd_fix_album_moods(args):
         print(f"{len(aenderungen)} Titel korrigiert:")
         for _, titel, stimmung in aenderungen:
             print(f"  '{titel}': Album -> Stimmung '{stimmung}'")
+
+
+def cmd_tag_charts(args):
+    with db.connect(args.db) as conn:
+        betroffen = moods.tag_existing_chart_hits(conn)
+        if not betroffen:
+            print("Keine Chart-Hits gefunden (oder bereits markiert).")
+            return
+        print(f"{len(betroffen)} Titel als Chart-Hit markiert:")
+        for _, titel in betroffen:
+            print(f"  '{titel}'")
 
 
 def _find_song(conn, identifier):
@@ -210,6 +226,12 @@ def build_parser():
         help="Bereits importierte Titel korrigieren, bei denen eine Stimmung im Album-Feld steht",
     )
     p.set_defaults(func=cmd_fix_album_moods)
+
+    p = sub.add_parser(
+        "tag-charts",
+        help="Bereits importierte Titel mit Chart-Hinweis im Album-Feld als 'Charts' markieren",
+    )
+    p.set_defaults(func=cmd_tag_charts)
 
     p = sub.add_parser(
         "delete",

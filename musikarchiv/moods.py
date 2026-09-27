@@ -1,6 +1,8 @@
 """Alles rund um Stimmungen: Vorschlagslisten, Genre-Heuristik und die
 Erkennung von Stimmungswoertern, die versehentlich im Album-Feld stehen."""
 
+import re
+
 SUGGESTED_MOODS = [
     "Freude",
     "Spannung",
@@ -16,7 +18,27 @@ SUGGESTED_MOODS = [
     "Romantik",
     "Hoffnung",
     "Wehmut",
+    "Charts",
 ]
+
+CHART_MOOD_NAME = "Charts"
+_CHART_RE = re.compile(r"\bchart[\s-]?hits?\b|\bcharts?\b", re.IGNORECASE)
+
+
+def looks_like_chart_hit(text):
+    """Erkennt Hinweise auf einen Chart-Hit im Album-Feld, z.B. "... Charts",
+    "Chart-Hit" oder "Chart Hits" - meist am Ende des Albumtitels."""
+    if not text:
+        return False
+    return _CHART_RE.search(text) is not None
+
+
+def is_pure_chart_label(text):
+    """True, wenn das Album-Feld NUR aus dem Chart-Hinweis besteht (z.B. nur
+    "Charts" oder "Chart-Hit"), ohne einen echten Albumtitel daneben."""
+    if not text:
+        return False
+    return _CHART_RE.fullmatch(text.strip()) is not None
 
 # Grobe Heuristik: Genre-Schlagwort (kleingeschrieben) -> passende Stimmung(en).
 # Kein Ersatz fuer echtes Zuhoeren, aber ein brauchbarer erster Vorschlag.
@@ -136,3 +158,28 @@ def fix_existing_album_moods(conn):
             aenderungen.append((row["id"], row["title"], mood_name))
 
     return aenderungen
+
+
+def tag_existing_chart_hits(conn):
+    """Vergibt die Stimmung "Charts" nachtraeglich an bereits importierte
+    Titel, deren Album-Feld einen Chart-Hinweis enthaelt (Album bleibt
+    dabei unveraendert). Gibt die Liste der betroffenen Titel zurueck
+    [(song_id, titel), ...]."""
+    rows = conn.execute(
+        "SELECT id, title, album FROM songs WHERE album IS NOT NULL AND album != ''"
+    ).fetchall()
+
+    betroffen = []
+    for row in rows:
+        if looks_like_chart_hit(row["album"]):
+            bereits_markiert = conn.execute(
+                """SELECT 1 FROM song_moods sm JOIN moods m ON m.id = sm.mood_id
+                   WHERE sm.song_id = ? AND m.name = ?""",
+                (row["id"], CHART_MOOD_NAME),
+            ).fetchone()
+            if bereits_markiert:
+                continue
+            assign_mood(conn, row["id"], CHART_MOOD_NAME)
+            betroffen.append((row["id"], row["title"]))
+
+    return betroffen

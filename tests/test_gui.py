@@ -322,6 +322,151 @@ def test_import_folder_fortschritt_callback_bei_vielen_dateien(tmp_path):
     assert all(gesamt == 12 for _, gesamt, _ in aufrufe)
 
 
+def _seed_alben(db_path, tmp_path):
+    with db.connect(db_path) as conn:
+        conn.execute(
+            "INSERT INTO songs (title, artist, album, year, filepath) VALUES (?,?,?,?,?)",
+            ("24K Magic", "Bruno Mars", "24K Magic", 2016, str(tmp_path / "1.mp3")),
+        )
+        conn.execute(
+            "INSERT INTO songs (title, artist, album, year, filepath) VALUES (?,?,?,?,?)",
+            ("That's What I Like", "Bruno Mars", "24K Magic", 2016, str(tmp_path / "2.mp3")),
+        )
+        conn.execute(
+            "INSERT INTO songs (title, artist, album, filepath) VALUES (?,?,?,?)",
+            ("Solo-Track", "Ein Interpret", None, str(tmp_path / "3.mp3")),
+        )
+
+
+def test_album_ansicht_gruppiert_titel_zu_alben(tmp_path):
+    db_path = tmp_path / "test.db"
+    _seed_alben(db_path, tmp_path)
+
+    app = _app_or_skip(db_path)
+    app.update()
+    try:
+        app.view_mode_var.set("alben")
+        app.on_view_mode_changed()
+        app.update()
+
+        zeilen = app.album_tree.get_children()
+        assert len(zeilen) == 2  # "24K Magic" (2 Titel) + "(kein Album)" (1 Titel)
+
+        werte = {app.album_tree.item(i, "values")[0]: app.album_tree.item(i, "values") for i in zeilen}
+        assert "24K Magic" in werte
+        assert werte["24K Magic"][1] == "Bruno Mars"
+        assert werte["24K Magic"][3] == "2"  # Anzahl Titel
+
+        assert gui.KEIN_ALBUM in werte
+        assert werte[gui.KEIN_ALBUM][3] == "1"
+
+        # Der Titel-Baum ist waehrenddessen unsichtbar, der Album-Baum sichtbar
+        assert not app.title_list_frame.winfo_ismapped()
+        assert app.album_list_frame.winfo_ismapped()
+    finally:
+        app.destroy()
+
+
+def test_album_titel_anzeigen_filtert_titelansicht(tmp_path, monkeypatch):
+    db_path = tmp_path / "test.db"
+    _seed_alben(db_path, tmp_path)
+
+    monkeypatch.setattr(gui.messagebox, "showwarning", lambda *a, **k: None)
+
+    app = _app_or_skip(db_path)
+    app.update()
+    try:
+        app.view_mode_var.set("alben")
+        app.on_view_mode_changed()
+        app.update()
+
+        # "24K Magic"-Zeile finden und auswaehlen
+        ziel_iid = next(
+            i for i in app.album_tree.get_children()
+            if app.album_tree.item(i, "values")[0] == "24K Magic"
+        )
+        app.album_tree.selection_set(ziel_iid)
+        app.update()
+
+        app.album_titel_anzeigen()
+        app.update()
+
+        assert app.view_mode_var.get() == "titel"
+        assert app.album_filter == ("Bruno Mars", "24K Magic")
+        titel = sorted(app.tree.item(i, "values")[0] for i in app.tree.get_children())
+        assert titel == ["24K Magic", "That's What I Like"]
+
+        # Filterleiste ist sichtbar und zeigt den Filter an
+        assert app.filter_leiste.winfo_ismapped()
+        assert "24K Magic" in app.filter_leiste_label.cget("text")
+
+        # Filter aufheben zeigt wieder alle Titel
+        app.album_filter_aufheben()
+        app.update()
+        assert len(app.tree.get_children()) == 3
+        assert not app.filter_leiste.winfo_ismapped()
+    finally:
+        app.destroy()
+
+
+def test_album_ansicht_sortierung_per_klick(tmp_path):
+    db_path = tmp_path / "test.db"
+    _seed_alben(db_path, tmp_path)
+
+    app = _app_or_skip(db_path)
+    app.update()
+    try:
+        app.view_mode_var.set("alben")
+        app.on_view_mode_changed()
+        app.update()
+
+        app.sort_by_album("interpret")
+        app.update()
+        interpreten = [app.album_tree.item(i, "values")[1] for i in app.album_tree.get_children()]
+        assert interpreten == sorted(interpreten)
+
+        app.sort_by_album("interpret")
+        app.update()
+        interpreten_umgekehrt = [
+            app.album_tree.item(i, "values")[1] for i in app.album_tree.get_children()
+        ]
+        assert interpreten_umgekehrt == sorted(interpreten, reverse=True)
+    finally:
+        app.destroy()
+
+
+def test_ansicht_wechsel_verwirft_alte_titelauswahl(tmp_path, monkeypatch):
+    """Regressionstest: nach dem Wechsel in die Album-Ansicht darf eine
+    zuvor in der Titel-Ansicht getroffene Auswahl nicht mehr fuer
+    'Ausgewaehlte loeschen' greifen."""
+    db_path = tmp_path / "test.db"
+    _seed_songs(db_path, tmp_path)
+
+    warnungen = []
+    monkeypatch.setattr(gui.messagebox, "showwarning", lambda *a, **k: warnungen.append(1))
+
+    app = _app_or_skip(db_path)
+    app.update()
+    try:
+        app.tree.selection_set(app.tree.get_children())
+        app.on_select_song()
+        assert len(app.selected_song_ids) == 2
+
+        app.view_mode_var.set("alben")
+        app.on_view_mode_changed()
+        app.update()
+
+        assert app.selected_song_ids == []
+        app.delete_selected()
+        assert warnungen  # Warnung statt stillschweigendem Loeschen
+
+        with db.connect(db_path) as conn:
+            anzahl = conn.execute("SELECT COUNT(*) as c FROM songs").fetchone()["c"]
+        assert anzahl == 2
+    finally:
+        app.destroy()
+
+
 def test_organize_sortiert_dateien(tmp_path):
     db_path = tmp_path / "test.db"
     _seed_songs(db_path, tmp_path)

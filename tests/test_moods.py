@@ -22,6 +22,45 @@ def test_suggest_moods_for_genre():
     assert moods.suggest_moods_for_genre("Rock/Ballade") == ["Spannung", "Motivation", "Liebeslieder", "Romantik"]
 
 
+def test_looks_like_chart_hit():
+    assert moods.looks_like_chart_hit("Bravo Hits 2005 Charts")
+    assert moods.looks_like_chart_hit("Kuschelrock 15 (Chart-Hit)")
+    assert moods.looks_like_chart_hit("Sommerhits Chart Hits")
+    assert moods.looks_like_chart_hit("CHARTS")
+    assert not moods.looks_like_chart_hit("Charterhouse Sessions")  # kein eigenes Wort
+    assert not moods.looks_like_chart_hit("Greatest Hits")
+    assert not moods.looks_like_chart_hit("")
+    assert not moods.looks_like_chart_hit(None)
+
+
+def test_tag_existing_chart_hits_markiert_nur_passende_und_nicht_doppelt(tmp_path):
+    db_path = tmp_path / "test.db"
+    with db.connect(db_path) as conn:
+        conn.execute(
+            "INSERT INTO songs (title, artist, album, filepath) VALUES (?,?,?,?)",
+            ("Titel A", "Bruno Mars", "24K Magic Charts", str(tmp_path / "a.mp3")),
+        )
+        conn.execute(
+            "INSERT INTO songs (title, artist, album, filepath) VALUES (?,?,?,?)",
+            ("Titel B", "Band", "Greatest Hits", str(tmp_path / "b.mp3")),
+        )
+
+    with db.connect(db_path) as conn:
+        betroffen = moods.tag_existing_chart_hits(conn)
+        assert [titel for _, titel in betroffen] == ["Titel A"]
+
+        row_a = conn.execute("SELECT * FROM songs WHERE title='Titel A'").fetchone()
+        assert row_a["album"] == "24K Magic Charts"  # Album bleibt unveraendert
+        assert organizer._mood_names(conn, row_a["id"]) == ["Charts"]
+
+        row_b = conn.execute("SELECT * FROM songs WHERE title='Titel B'").fetchone()
+        assert organizer._mood_names(conn, row_b["id"]) == []
+
+        # Zweiter Lauf markiert nichts erneut
+        betroffen_erneut = moods.tag_existing_chart_hits(conn)
+        assert betroffen_erneut == []
+
+
 def test_fix_existing_album_moods_verschiebt_stimmung_aus_album(tmp_path):
     db_path = tmp_path / "test.db"
     with db.connect(db_path) as conn:
@@ -109,6 +148,34 @@ def test_import_directory_erkennt_stimmung_im_album_feld(tmp_path, monkeypatch):
         assert song2["year"] == 2005
         assert song2["lc_nummer"] == "LC-06861"
         assert set(organizer._mood_names(conn, song2["id"])) == {"Wut", "Spannung"}
+
+
+def test_import_directory_erkennt_chart_hit_im_album_feld(tmp_path, monkeypatch):
+    musik_ordner = tmp_path / "musik"
+    musik_ordner.mkdir()
+    datei = musik_ordner / "song.mp3"
+    datei.write_bytes(b"")
+
+    fake_tags = {
+        "title": "Uptown Funk",
+        "artist": "Bruno Mars",
+        "album": "24K Magic Charts",
+        "genre": None,
+        "year": None,
+        "lc_nummer": None,
+        "duration_sec": None,
+    }
+    monkeypatch.setattr(importer.scanner, "read_tags", lambda _fp: fake_tags)
+    monkeypatch.setattr(importer.scanner, "is_valid_audio", lambda _fp: True)
+
+    db_path = tmp_path / "test.db"
+    with db.connect(db_path) as conn:
+        ergebnis = importer.import_directory(conn, musik_ordner)
+        assert ergebnis["chart_hits"] == 1
+
+        song = conn.execute("SELECT * FROM songs WHERE title='Uptown Funk'").fetchone()
+        assert song["album"] == "24K Magic Charts"  # Album bleibt erhalten
+        assert "Charts" in organizer._mood_names(conn, song["id"])
 
 
 def test_import_directory_ignoriert_ungueltige_audiodateien(tmp_path, monkeypatch):
