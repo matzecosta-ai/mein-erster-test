@@ -42,6 +42,16 @@ Es öffnet sich **ein** Fenster mit:
   importiert wurde
 - einem Suchfeld oben, das die Liste beim Tippen sofort nach Titel filtert
 - einem Stimmungs-Filter (Dropdown) daneben
+- **Sortierbare Spalten**: Klick auf "Titel", "Interpret", "Album" oder
+  "Stimmungen" in der Kopfzeile sortiert die Liste danach; nochmaliger
+  Klick auf dieselbe Spalte dreht die Reihenfolge um (▲/▼-Pfeil zeigt an,
+  wonach gerade sortiert ist)
+- **Mehrfachauswahl**: mehrere Titel mit Strg-Klick (macOS: Cmd-Klick)
+  oder Umschalt-Klick auswählen, z.B. um sie gemeinsam zu löschen
+- **Titel löschen**: markierte Titel per Button "Ausgewählte löschen"
+  (oder Entf-Taste) aus dem Archiv entfernen – nach Bestätigung wird nur
+  der Datenbank-Eintrag gelöscht, die Musikdatei auf der Festplatte
+  bleibt unangetastet
 - einem Detailbereich rechts: beim Anklicken eines Titels werden dort die
   Stimmungen angezeigt, hinzugefügt oder entfernt – direkt im selben Fenster
 - einem Bereich "Auf Festplatte sortieren" (Stimmung/Interpret, Kopieren/
@@ -129,7 +139,16 @@ python -m musikarchiv search-mood "Freude"
 python -m musikarchiv list
 ```
 
-### 4. Auf der Festplatte sortieren
+### 4. Titel löschen
+
+```bash
+python -m musikarchiv delete "Sonnenschein" "Regentraenen"
+```
+
+Entfernt nur den Datenbank-Eintrag, die Musikdatei bleibt erhalten.
+Mehrere Titel-IDs oder Titelnamen können auf einmal angegeben werden.
+
+### 5. Auf der Festplatte sortieren
 
 ```bash
 python -m musikarchiv organize /pfad/zum/zielordner --by mood --aktion copy
@@ -146,7 +165,7 @@ jedem passenden Stimmungsordner.
 Eine eigene Datenbankdatei kann mit `--db /pfad/zur/datei.db` vor dem
 jeweiligen Befehl angegeben werden.
 
-### 5. Album-Stimmungen korrigieren
+### 6. Album-Stimmungen korrigieren
 
 Falls schon vor dieser Funktion Titel importiert wurden, bei denen eine
 Stimmung im Album-Feld statt bei den Stimmungen gelandet ist:

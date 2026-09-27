@@ -12,6 +12,21 @@ ICON_ICO_PATH = APP_DIR / "icon.ico"
 ICON_PNG_PATH = APP_DIR / "icon.png"
 ALLE_STIMMUNGEN = "(alle Stimmungen)"
 
+# Spalten, die per Klick auf die Ueberschrift sortierbar sind, und die
+# SQL-Ausdruecke, nach denen dann sortiert wird.
+SORTIERBARE_SPALTEN = {
+    "titel": "s.title",
+    "interpret": "s.artist",
+    "album": "s.album",
+    "stimmungen": "moods",
+}
+SPALTEN_BESCHRIFTUNG = {
+    "titel": "Titel",
+    "interpret": "Interpret",
+    "album": "Album",
+    "stimmungen": "Stimmungen",
+}
+
 # Audiowiedergabe wird erst beim ersten Abspielen geladen, damit die App
 # auch ohne installiertes 'pygame' startet (dann funktioniert nur Play/Stopp nicht).
 _mixer = None
@@ -45,7 +60,10 @@ class MusikArchivApp(tk.Tk):
         self._set_icon()
 
         self.selected_song_id = None
+        self.selected_song_ids = []
         self.detail_genre = None
+        self.sort_column = "titel"
+        self.sort_reverse = False
         self._build_widgets()
         self.refresh_moods()
         self.refresh_songs()
@@ -91,6 +109,9 @@ class MusikArchivApp(tk.Tk):
         ).pack(side="left", padx=(0, 8))
         ttk.Button(
             toolbar, text="Album-Stimmungen korrigieren", command=self.fix_album_moods
+        ).pack(side="left", padx=(0, 8))
+        ttk.Button(
+            toolbar, text="Ausgewählte löschen", command=self.delete_selected
         ).pack(side="left", padx=(0, 16))
 
         ttk.Label(toolbar, text="Suche:").pack(side="left")
@@ -119,7 +140,7 @@ class MusikArchivApp(tk.Tk):
         # --- Liste ---
         list_frame = ttk.Frame(main)
         columns = ("titel", "interpret", "jahr", "album", "dauer", "stimmungen")
-        self.tree = ttk.Treeview(list_frame, columns=columns, show="headings", selectmode="browse")
+        self.tree = ttk.Treeview(list_frame, columns=columns, show="headings", selectmode="extended")
         headings = {
             "titel": ("Titel", 220),
             "interpret": ("Interpret", 150),
@@ -129,7 +150,10 @@ class MusikArchivApp(tk.Tk):
             "stimmungen": ("Stimmungen", 220),
         }
         for col, (label, width) in headings.items():
-            self.tree.heading(col, text=label)
+            if col in SORTIERBARE_SPALTEN:
+                self.tree.heading(col, text=label, command=lambda c=col: self.sort_by(c))
+            else:
+                self.tree.heading(col, text=label)
             self.tree.column(col, width=width, anchor="w")
         vsb = ttk.Scrollbar(list_frame, orient="vertical", command=self.tree.yview)
         self.tree.configure(yscrollcommand=vsb.set)
@@ -137,6 +161,8 @@ class MusikArchivApp(tk.Tk):
         vsb.pack(side="right", fill="y")
         self.tree.bind("<<TreeviewSelect>>", self.on_select_song)
         self.tree.bind("<Double-1>", lambda _e: self.play_selected())
+        self.tree.bind("<Delete>", lambda _e: self.delete_selected())
+        self.tree.bind("<BackSpace>", lambda _e: self.delete_selected())
         main.add(list_frame, weight=3)
 
         # --- Detailbereich ---
@@ -233,6 +259,20 @@ class MusikArchivApp(tk.Tk):
         ).pack(anchor="w", pady=(10, 0), fill="x")
 
     # -------------------------------------------------------------- Daten
+    def sort_by(self, column):
+        if self.sort_column == column:
+            self.sort_reverse = not self.sort_reverse
+        else:
+            self.sort_column = column
+            self.sort_reverse = False
+        self.refresh_songs()
+
+    def _update_sort_indicator(self):
+        pfeil = " ▼" if self.sort_reverse else " ▲"
+        for col, label in SPALTEN_BESCHRIFTUNG.items():
+            text = label + pfeil if col == self.sort_column else label
+            self.tree.heading(col, text=text)
+
     def refresh_moods(self):
         with db.connect(self.db_path) as conn:
             rows = conn.execute("SELECT name FROM moods ORDER BY name").fetchall()
@@ -265,11 +305,14 @@ class MusikArchivApp(tk.Tk):
             params.append(stimmung)
         if conditions:
             query += " WHERE " + " AND ".join(conditions)
-        query += " GROUP BY s.id ORDER BY s.title"
+        sort_ausdruck = SORTIERBARE_SPALTEN.get(self.sort_column, "s.title")
+        richtung = "DESC" if self.sort_reverse else "ASC"
+        query += f" GROUP BY s.id ORDER BY {sort_ausdruck} COLLATE NOCASE {richtung}"
 
         with db.connect(self.db_path) as conn:
             rows = conn.execute(query, params).fetchall()
 
+        self._update_sort_indicator()
         self.tree.delete(*self.tree.get_children())
         for row in rows:
             dauer = _format_dauer(row["duration_sec"])
@@ -297,9 +340,23 @@ class MusikArchivApp(tk.Tk):
 
     def on_select_song(self, _event=None):
         selection = self.tree.selection()
+        self.selected_song_ids = [int(s) for s in selection]
+
         if not selection:
             self._clear_detail()
             return
+
+        if len(selection) > 1:
+            self.selected_song_id = None
+            self.detail_title_var.set(f"{len(selection)} Titel ausgewählt")
+            self.detail_artist_var.set("")
+            self.detail_album_var.set("")
+            self.detail_year_var.set("")
+            self.detail_path_var.set("")
+            self.detail_genre = None
+            self.mood_listbox.delete(0, "end")
+            return
+
         song_id = int(selection[0])
         self.selected_song_id = song_id
         with db.connect(self.db_path) as conn:
@@ -321,6 +378,7 @@ class MusikArchivApp(tk.Tk):
 
     def _clear_detail(self):
         self.selected_song_id = None
+        self.selected_song_ids = []
         self.detail_title_var.set("–")
         self.detail_artist_var.set("")
         self.detail_album_var.set("")
@@ -361,6 +419,47 @@ class MusikArchivApp(tk.Tk):
                 "einen Stimmungs-Vorschlag."
             )
         messagebox.showinfo("Import abgeschlossen", text)
+
+    def delete_selected(self):
+        song_ids = self.selected_song_ids
+        if not song_ids:
+            messagebox.showwarning(
+                "Keine Auswahl", "Bitte mindestens einen Titel in der Liste auswählen."
+            )
+            return
+
+        platzhalter = ",".join("?" * len(song_ids))
+        with db.connect(self.db_path) as conn:
+            rows = conn.execute(
+                f"SELECT title FROM songs WHERE id IN ({platzhalter})", song_ids
+            ).fetchall()
+        titel_namen = [r["title"] for r in rows]
+        if not titel_namen:
+            return
+
+        if len(titel_namen) > 15:
+            vorschau = "\n".join(f"- {t}" for t in titel_namen[:15])
+            vorschau += f"\n… und {len(titel_namen) - 15} weitere"
+        else:
+            vorschau = "\n".join(f"- {t}" for t in titel_namen)
+
+        frage = (
+            f"{len(titel_namen)} Titel wirklich aus dem Archiv löschen?\n\n{vorschau}\n\n"
+            "Die Musikdateien auf der Festplatte bleiben unangetastet - nur der "
+            "Eintrag im Musikarchiv wird entfernt."
+        )
+        if not messagebox.askyesno("Titel löschen", frage):
+            return
+
+        with db.connect(self.db_path) as conn:
+            conn.executemany(
+                "DELETE FROM songs WHERE id = ?", [(sid,) for sid in song_ids]
+            )
+
+        self.refresh_moods()
+        self.refresh_songs()
+        self._clear_detail()
+        self.status_var.set(f"{len(titel_namen)} Titel gelöscht")
 
     def fix_album_moods(self):
         with db.connect(self.db_path) as conn:

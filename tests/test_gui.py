@@ -153,6 +153,105 @@ def test_fix_album_moods_in_der_gui(tmp_path, monkeypatch):
         app.destroy()
 
 
+def test_mehrfachauswahl_liefert_alle_ids(tmp_path):
+    db_path = tmp_path / "test.db"
+    _seed_songs(db_path, tmp_path)
+
+    app = _app_or_skip(db_path)
+    app.update()
+    try:
+        alle_ids = app.tree.get_children()
+        assert len(alle_ids) == 2
+        app.tree.selection_set(alle_ids)  # simuliert Strg/Umschalt-Mehrfachauswahl
+        app.on_select_song()
+        app.update()
+
+        assert sorted(app.selected_song_ids) == sorted(int(i) for i in alle_ids)
+        # Bei Mehrfachauswahl gibt es keinen "einen" ausgewaehlten Titel mehr
+        assert app.selected_song_id is None
+        assert "2 Titel ausgewählt" in app.detail_title_var.get()
+    finally:
+        app.destroy()
+
+
+def test_delete_selected_entfernt_mehrere_titel(tmp_path, monkeypatch):
+    db_path = tmp_path / "test.db"
+    _seed_songs(db_path, tmp_path)
+
+    monkeypatch.setattr(gui.messagebox, "askyesno", lambda *a, **k: True)
+    monkeypatch.setattr(gui.messagebox, "showwarning", lambda *a, **k: None)
+
+    app = _app_or_skip(db_path)
+    app.update()
+    try:
+        alle_ids = app.tree.get_children()
+        app.tree.selection_set(alle_ids)
+        app.on_select_song()
+        app.update()
+
+        app.delete_selected()
+        app.update()
+
+        with db.connect(db_path) as conn:
+            anzahl = conn.execute("SELECT COUNT(*) as c FROM songs").fetchone()["c"]
+        assert anzahl == 0
+        assert len(app.tree.get_children()) == 0
+        assert app.selected_song_id is None
+        assert app.selected_song_ids == []
+    finally:
+        app.destroy()
+
+
+def test_delete_selected_ohne_bestaetigung_loescht_nichts(tmp_path, monkeypatch):
+    db_path = tmp_path / "test.db"
+    _seed_songs(db_path, tmp_path)
+
+    monkeypatch.setattr(gui.messagebox, "askyesno", lambda *a, **k: False)
+
+    app = _app_or_skip(db_path)
+    app.update()
+    try:
+        first_id = app.tree.get_children()[0]
+        app.tree.selection_set(first_id)
+        app.on_select_song()
+        app.update()
+
+        app.delete_selected()
+        app.update()
+
+        with db.connect(db_path) as conn:
+            anzahl = conn.execute("SELECT COUNT(*) as c FROM songs").fetchone()["c"]
+        assert anzahl == 2
+    finally:
+        app.destroy()
+
+
+def test_spalten_sortierung_per_klick_auf_kopfzeile(tmp_path):
+    db_path = tmp_path / "test.db"
+    _seed_songs(db_path, tmp_path)
+
+    app = _app_or_skip(db_path)
+    app.update()
+    try:
+        # Standard: nach Titel aufsteigend (Regentraenen vor Sonnenschein)
+        titel = [app.tree.item(i, "values")[0] for i in app.tree.get_children()]
+        assert titel == ["Regentraenen", "Sonnenschein"]
+
+        # Klick auf "Interpret" sortiert danach (Band A vor Band B)
+        app.sort_by("interpret")
+        app.update()
+        interpreten = [app.tree.item(i, "values")[1] for i in app.tree.get_children()]
+        assert interpreten == ["Band A", "Band B"]
+
+        # Erneuter Klick auf dieselbe Spalte dreht die Richtung um
+        app.sort_by("interpret")
+        app.update()
+        interpreten = [app.tree.item(i, "values")[1] for i in app.tree.get_children()]
+        assert interpreten == ["Band B", "Band A"]
+    finally:
+        app.destroy()
+
+
 def test_organize_sortiert_dateien(tmp_path):
     db_path = tmp_path / "test.db"
     _seed_songs(db_path, tmp_path)

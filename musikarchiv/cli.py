@@ -87,6 +87,28 @@ def cmd_mood_remove(args):
         print(f"Stimmung '{args.stimmung}' von '{song['title']}' entfernt.")
 
 
+def cmd_delete(args):
+    with db.connect(args.db) as conn:
+        geloescht = []
+        for identifier in args.songs:
+            matches = _find_song(conn, identifier)
+            if not matches:
+                print(f"Kein Titel gefunden für '{identifier}'.")
+                continue
+            if len(matches) > 1:
+                print(f"'{identifier}' ist mehrdeutig, bitte die ID verwenden:")
+                for m in matches:
+                    print(f"  [{m['id']}] {m['title']} - {m['artist'] or '?'}")
+                continue
+            song = matches[0]
+            conn.execute("DELETE FROM songs WHERE id = ?", (song["id"],))
+            geloescht.append(song["title"])
+        if geloescht:
+            print(f"{len(geloescht)} Titel gelöscht: {', '.join(geloescht)}")
+        else:
+            print("Keine Titel gelöscht.")
+
+
 def cmd_mood_list(args):
     with db.connect(args.db) as conn:
         rows = conn.execute(
@@ -180,6 +202,13 @@ def build_parser():
         help="Bereits importierte Titel korrigieren, bei denen eine Stimmung im Album-Feld steht",
     )
     p.set_defaults(func=cmd_fix_album_moods)
+
+    p = sub.add_parser(
+        "delete",
+        help="Titel aus dem Archiv löschen (nur Datenbank-Eintrag, Datei bleibt erhalten)",
+    )
+    p.add_argument("songs", nargs="+", help="Titel-ID(s) oder Teil des Titelnamens")
+    p.set_defaults(func=cmd_delete)
 
     p = sub.add_parser("mood-add", help="Stimmung(en) einem Titel zuweisen")
     p.add_argument("song", help="Titel-ID oder Teil des Titelnamens")

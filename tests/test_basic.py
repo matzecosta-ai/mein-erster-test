@@ -98,3 +98,41 @@ def test_titelnummer_wird_beim_import_entfernt(tmp_path, capsys):
     assert "007 Agentenlied" not in titel_text
     # Titel ohne Nullpolsterung/klares Trennzeichen bleiben unangetastet
     assert "50 Cent Style" in titel_text
+
+
+def test_delete_entfernt_titel_aber_nicht_die_datei(tmp_path, capsys):
+    musik_ordner = tmp_path / "musik"
+    musik_ordner.mkdir()
+    datei = _make_song(musik_ordner, "Sonnenschein.wav")
+
+    db_path = tmp_path / "test.db"
+    main(["--db", str(db_path), "import", str(musik_ordner)])
+    capsys.readouterr()
+
+    main(["--db", str(db_path), "delete", "Sonnenschein"])
+    out = capsys.readouterr().out
+    assert "1 Titel gelöscht" in out
+    assert datei.exists()  # die Musikdatei selbst bleibt unangetastet
+
+    main(["--db", str(db_path), "list"])
+    out = capsys.readouterr().out
+    assert "Keine Titel gefunden" in out
+
+
+def test_delete_mehrere_titel_auf_einmal(tmp_path, capsys):
+    musik_ordner = tmp_path / "musik"
+    musik_ordner.mkdir()
+    _make_song(musik_ordner, "Sonnenschein.wav")
+    _make_song(musik_ordner, "Regentraenen.wav")
+
+    db_path = tmp_path / "test.db"
+    main(["--db", str(db_path), "import", str(musik_ordner)])
+    capsys.readouterr()
+
+    main(["--db", str(db_path), "delete", "Sonnenschein", "Regentraenen"])
+    out = capsys.readouterr().out
+    assert "2 Titel gelöscht" in out
+
+    main(["--db", str(db_path), "list"])
+    out = capsys.readouterr().out
+    assert "Keine Titel gefunden" in out
