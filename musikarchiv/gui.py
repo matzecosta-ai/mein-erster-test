@@ -36,9 +36,9 @@ ALBUM_SORTIERBARE_SPALTEN = {
     "stimmungen": "moods",
 }
 ALBUM_SPALTEN_BESCHRIFTUNG = {
-    "album": "Album",
-    "interpret": "Interpret",
-    "stimmungen": "Stimmungen",
+    "album": ("#0", "Album"),
+    "interpret": ("interpret", "Interpret"),
+    "stimmungen": ("stimmungen", "Stimmungen"),
 }
 KEIN_ALBUM = "(kein Album)"
 
@@ -229,16 +229,22 @@ class MusikArchivApp(tk.Tk):
 
         album_tree_frame = ttk.Frame(self.album_list_frame)
         album_tree_frame.pack(side="top", fill="both", expand=True)
-        album_columns = ("album", "interpret", "jahr", "anzahl", "stimmungen")
+        # "tree headings": Spalte "#0" zeigt Album (aufklappbar) bzw. eingerueckt
+        # den Titel darin; die uebrigen Spalten liefern die Zusatzinfos.
+        album_columns = ("interpret", "jahr", "anzahl", "dauer", "stimmungen")
         self.album_tree = ttk.Treeview(
-            album_tree_frame, columns=album_columns, show="headings", selectmode="browse"
+            album_tree_frame, columns=album_columns, show="tree headings", selectmode="browse"
         )
+        self.album_tree.heading(
+            "#0", text="Album", command=lambda: self.sort_by_album("album")
+        )
+        self.album_tree.column("#0", width=280, anchor="w")
         album_headings = {
-            "album": ("Album", 260),
-            "interpret": ("Interpret", 180),
-            "jahr": ("Jahr", 60),
-            "anzahl": ("Titel", 60),
-            "stimmungen": ("Stimmungen", 260),
+            "interpret": ("Interpret", 160),
+            "jahr": ("Jahr", 55),
+            "anzahl": ("Titel", 50),
+            "dauer": ("Dauer", 60),
+            "stimmungen": ("Stimmungen", 220),
         }
         for col, (label, width) in album_headings.items():
             if col in ALBUM_SORTIERBARE_SPALTEN:
@@ -255,7 +261,7 @@ class MusikArchivApp(tk.Tk):
         self.album_tree.pack(side="left", fill="both", expand=True)
         album_vsb.pack(side="right", fill="y")
         self.album_tree.bind("<<TreeviewSelect>>", self.on_select_album)
-        self.album_tree.bind("<Double-1>", lambda _e: self.album_titel_anzeigen())
+        self.album_tree.bind("<Double-1>", self._on_album_tree_double_click)
         # album_list_frame wird erst bei Umschalten auf "Alben" gepackt
 
         main.add(list_container, weight=3)
@@ -380,9 +386,9 @@ class MusikArchivApp(tk.Tk):
 
     def _update_album_sort_indicator(self):
         pfeil = " ▼" if self.sort_reverse_album else " ▲"
-        for col, label in ALBUM_SPALTEN_BESCHRIFTUNG.items():
-            text = label + pfeil if col == self.sort_column_album else label
-            self.album_tree.heading(col, text=text)
+        for logisch, (spalten_id, label) in ALBUM_SPALTEN_BESCHRIFTUNG.items():
+            text = label + pfeil if logisch == self.sort_column_album else label
+            self.album_tree.heading(spalten_id, text=text)
 
     def on_view_mode_changed(self):
         # Auswahl aus der jeweils anderen Ansicht verwerfen, damit Aktionen wie
@@ -496,17 +502,14 @@ class MusikArchivApp(tk.Tk):
             self._clear_detail()
 
     def refresh_albums(self):
+        """Laedt die Album-Ansicht: eine aufklappbare Zeile pro Album, die
+        Titel darin als eingerueckte Kindzeilen (erst beim Aufklappen
+        sichtbar dank ttk.Treeview's eingebautem Verhalten)."""
         suchtext = self.search_var.get().strip()
         stimmung = self.mood_filter_var.get()
 
-        query = f"""
-            SELECT
-                s.artist AS artist,
-                s.album AS album,
-                COALESCE(s.album, '{KEIN_ALBUM}') AS album_anzeige,
-                COUNT(*) AS anzahl,
-                MIN(s.year) AS year,
-                GROUP_CONCAT(DISTINCT m.name) AS moods
+        query = """
+            SELECT s.*, GROUP_CONCAT(m.name, ', ') AS moods
             FROM songs s
             LEFT JOIN song_moods sm ON sm.song_id = s.id
             LEFT JOIN moods m ON m.id = sm.mood_id
@@ -514,8 +517,11 @@ class MusikArchivApp(tk.Tk):
         conditions = []
         params = []
         if suchtext:
-            conditions.append("(COALESCE(s.album, '') LIKE ? OR COALESCE(s.artist, '') LIKE ?)")
-            params.extend([f"%{suchtext}%", f"%{suchtext}%"])
+            conditions.append(
+                "(COALESCE(s.album, '') LIKE ? OR COALESCE(s.artist, '') LIKE ? "
+                "OR s.title LIKE ?)"
+            )
+            params.extend([f"%{suchtext}%", f"%{suchtext}%", f"%{suchtext}%"])
         if stimmung and stimmung != ALLE_STIMMUNGEN:
             conditions.append(
                 "s.id IN (SELECT sm2.song_id FROM song_moods sm2 "
@@ -524,45 +530,114 @@ class MusikArchivApp(tk.Tk):
             params.append(stimmung)
         if conditions:
             query += " WHERE " + " AND ".join(conditions)
-        sort_ausdruck = ALBUM_SORTIERBARE_SPALTEN.get(self.sort_column_album, "album_anzeige")
-        richtung = "DESC" if self.sort_reverse_album else "ASC"
-        query += (
-            f" GROUP BY s.artist, s.album ORDER BY {sort_ausdruck} COLLATE NOCASE {richtung}"
-        )
+        query += " GROUP BY s.id ORDER BY s.title COLLATE NOCASE"
 
         with db.connect(self.db_path) as conn:
             rows = conn.execute(query, params).fetchall()
 
+        # In Python nach (Interpret, Album) gruppieren - dabei die
+        # Reihenfolge des ersten Auftretens je Gruppe beibehalten.
+        gruppen_songs = {}
+        gruppen_reihenfolge = []
+        for row in rows:
+            key = (row["artist"], row["album"])
+            if key not in gruppen_songs:
+                gruppen_songs[key] = []
+                gruppen_reihenfolge.append(key)
+            gruppen_songs[key].append(row)
+
+        zusammenfassungen = []
+        for key in gruppen_reihenfolge:
+            artist, album = key
+            songs = gruppen_songs[key]
+            jahre = [s["year"] for s in songs if s["year"]]
+            album_moods = []
+            for s in songs:
+                for name in (s["moods"] or "").split(", "):
+                    if name and name not in album_moods:
+                        album_moods.append(name)
+            zusammenfassungen.append(
+                {
+                    "artist": artist,
+                    "album": album,
+                    "album_anzeige": album or KEIN_ALBUM,
+                    "anzahl": len(songs),
+                    "year": min(jahre) if jahre else None,
+                    "moods": ", ".join(album_moods),
+                    "songs": songs,
+                }
+            )
+
+        sortier_feld = ALBUM_SORTIERBARE_SPALTEN.get(self.sort_column_album, "album_anzeige")
+        zusammenfassungen.sort(
+            key=lambda z: (z[sortier_feld] or "").lower(), reverse=self.sort_reverse_album
+        )
+
         self._update_album_sort_indicator()
         self.album_tree.delete(*self.album_tree.get_children())
-        for index, row in enumerate(rows):
+        self._album_group_keys = {}
+        for index, gruppe in enumerate(zusammenfassungen):
+            parent_iid = f"album:{index}"
             self.album_tree.insert(
                 "",
                 "end",
-                iid=str(index),
+                iid=parent_iid,
+                text=gruppe["album_anzeige"],
                 values=(
-                    row["album_anzeige"],
-                    row["artist"] or "",
-                    row["year"] or "",
-                    row["anzahl"],
-                    row["moods"] or "",
+                    gruppe["artist"] or "",
+                    gruppe["year"] or "",
+                    gruppe["anzahl"],
+                    "",
+                    gruppe["moods"],
                 ),
             )
-        self._album_rows = {str(i): (r["artist"], r["album"]) for i, r in enumerate(rows)}
+            self._album_group_keys[parent_iid] = (gruppe["artist"], gruppe["album"])
+            for song in gruppe["songs"]:
+                self.album_tree.insert(
+                    parent_iid,
+                    "end",
+                    iid=f"song:{song['id']}",
+                    text=song["title"],
+                    values=(
+                        song["artist"] or "",
+                        song["year"] or "",
+                        "",
+                        _format_dauer(song["duration_sec"]),
+                        song["moods"] or "",
+                    ),
+                )
 
-        self.status_var.set(f"{len(rows)} Alben angezeigt")
+        self.status_var.set(f"{len(zusammenfassungen)} Alben angezeigt")
 
     def on_select_album(self, _event=None):
-        pass  # keine Detailanzeige fuer Alben - "Titel dieses Albums anzeigen" nutzen
+        selection = self.album_tree.selection()
+        if not selection:
+            self._clear_detail()
+            return
+        iid = selection[0]
+        if iid.startswith("song:"):
+            self._zeige_titel_details(int(iid.split(":", 1)[1]))
+        else:
+            self._clear_detail()
+
+    def _on_album_tree_double_click(self, event):
+        iid = self.album_tree.identify_row(event.y)
+        if iid and iid.startswith("song:"):
+            self.play_selected()
+        # Bei Album-Zeilen macht ttk.Treeview das Auf-/Zuklappen per
+        # Doppelklick bereits von selbst - hier ist nichts weiter noetig.
 
     def album_titel_anzeigen(self):
         selection = self.album_tree.selection()
         if not selection:
             messagebox.showwarning(
-                "Kein Album ausgewählt", "Bitte zuerst ein Album in der Liste wählen."
+                "Kein Album ausgewählt", "Bitte zuerst ein Album (oder einen Titel darin) wählen."
             )
             return
-        artist, album = self._album_rows[selection[0]]
+        iid = selection[0]
+        if iid.startswith("song:"):
+            iid = self.album_tree.parent(iid)
+        artist, album = self._album_group_keys[iid]
         self.album_filter = (artist, album)
         self.view_mode_var.set("titel")
         self.on_view_mode_changed()
@@ -591,8 +666,14 @@ class MusikArchivApp(tk.Tk):
             self.mood_listbox.delete(0, "end")
             return
 
-        song_id = int(selection[0])
+        self._zeige_titel_details(int(selection[0]))
+
+    def _zeige_titel_details(self, song_id):
+        """Befuellt das Detailpanel fuer genau einen Titel - gemeinsam genutzt
+        von der Titel-Ansicht und von Titeln, die in der Album-Ansicht
+        aufgeklappt wurden."""
         self.selected_song_id = song_id
+        self.selected_song_ids = [song_id]
         with db.connect(self.db_path) as conn:
             song = conn.execute("SELECT * FROM songs WHERE id = ?", (song_id,)).fetchone()
             if song is None:
@@ -768,7 +849,7 @@ class MusikArchivApp(tk.Tk):
             )
 
         self.refresh_moods()
-        self.refresh_songs()
+        self._refresh_aktuelle_ansicht()
         self._clear_detail()
         self.status_var.set(f"{len(titel_namen)} Titel gelöscht")
 

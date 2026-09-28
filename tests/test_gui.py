@@ -349,20 +349,55 @@ def test_album_ansicht_gruppiert_titel_zu_alben(tmp_path):
         app.on_view_mode_changed()
         app.update()
 
-        zeilen = app.album_tree.get_children()
-        assert len(zeilen) == 2  # "24K Magic" (2 Titel) + "(kein Album)" (1 Titel)
+        # Nur die zwei Alben ("24K Magic" + "(kein Album)") sind oben sichtbar,
+        # die einzelnen Titel sind als Kinder eingeklappt.
+        album_zeilen = app.album_tree.get_children()
+        assert len(album_zeilen) == 2
 
-        werte = {app.album_tree.item(i, "values")[0]: app.album_tree.item(i, "values") for i in zeilen}
+        werte = {
+            app.album_tree.item(i, "text"): app.album_tree.item(i, "values") for i in album_zeilen
+        }
         assert "24K Magic" in werte
-        assert werte["24K Magic"][1] == "Bruno Mars"
-        assert werte["24K Magic"][3] == "2"  # Anzahl Titel
+        assert werte["24K Magic"][0] == "Bruno Mars"
+        assert werte["24K Magic"][2] == "2"  # Anzahl Titel
 
         assert gui.KEIN_ALBUM in werte
-        assert werte[gui.KEIN_ALBUM][3] == "1"
+        assert werte[gui.KEIN_ALBUM][2] == "1"
 
         # Der Titel-Baum ist waehrenddessen unsichtbar, der Album-Baum sichtbar
         assert not app.title_list_frame.winfo_ismapped()
         assert app.album_list_frame.winfo_ismapped()
+    finally:
+        app.destroy()
+
+
+def test_album_aufklappen_zeigt_enthaltene_titel(tmp_path):
+    db_path = tmp_path / "test.db"
+    _seed_alben(db_path, tmp_path)
+
+    app = _app_or_skip(db_path)
+    app.update()
+    try:
+        app.view_mode_var.set("alben")
+        app.on_view_mode_changed()
+        app.update()
+
+        album_iid = next(
+            i for i in app.album_tree.get_children()
+            if app.album_tree.item(i, "text") == "24K Magic"
+        )
+        # Die Titel sind als Kinder vorhanden, aber erst nach dem Aufklappen sichtbar.
+        kinder = app.album_tree.get_children(album_iid)
+        titel = sorted(app.album_tree.item(k, "text") for k in kinder)
+        assert titel == ["24K Magic", "That's What I Like"]
+
+        # Auswahl eines Titels darin fuellt das Detailpanel wie in der Titel-Ansicht.
+        app.album_tree.item(album_iid, open=True)
+        app.album_tree.selection_set(kinder[0])
+        app.on_select_album()
+        app.update()
+        assert app.selected_song_id is not None
+        assert app.detail_title_var.get() == app.album_tree.item(kinder[0], "text")
     finally:
         app.destroy()
 
@@ -383,7 +418,7 @@ def test_album_titel_anzeigen_filtert_titelansicht(tmp_path, monkeypatch):
         # "24K Magic"-Zeile finden und auswaehlen
         ziel_iid = next(
             i for i in app.album_tree.get_children()
-            if app.album_tree.item(i, "values")[0] == "24K Magic"
+            if app.album_tree.item(i, "text") == "24K Magic"
         )
         app.album_tree.selection_set(ziel_iid)
         app.update()
@@ -422,15 +457,15 @@ def test_album_ansicht_sortierung_per_klick(tmp_path):
 
         app.sort_by_album("interpret")
         app.update()
-        interpreten = [app.album_tree.item(i, "values")[1] for i in app.album_tree.get_children()]
-        assert interpreten == sorted(interpreten)
+        interpreten = [app.album_tree.item(i, "values")[0] for i in app.album_tree.get_children()]
+        assert interpreten == sorted(interpreten, key=str.lower)
 
         app.sort_by_album("interpret")
         app.update()
         interpreten_umgekehrt = [
-            app.album_tree.item(i, "values")[1] for i in app.album_tree.get_children()
+            app.album_tree.item(i, "values")[0] for i in app.album_tree.get_children()
         ]
-        assert interpreten_umgekehrt == sorted(interpreten, reverse=True)
+        assert interpreten_umgekehrt == sorted(interpreten, key=str.lower, reverse=True)
     finally:
         app.destroy()
 
