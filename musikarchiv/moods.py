@@ -19,6 +19,7 @@ SUGGESTED_MOODS = [
     "Hoffnung",
     "Wehmut",
     "Charts",
+    "Instrumental",
 ]
 
 CHART_MOOD_NAME = "Charts"
@@ -39,6 +40,22 @@ def is_pure_chart_label(text):
     if not text:
         return False
     return _CHART_RE.fullmatch(text.strip()) is not None
+
+
+INSTRUMENTAL_MOOD_NAME = "Instrumental"
+# Kein \b am Ende, damit auch zusammengesetzte Woerter wie
+# "Instrumentalversion" oder "Instrumentalmix" erkannt werden.
+_INSTRUMENTAL_RE = re.compile(r"\binstrumental", re.IGNORECASE)
+
+
+def looks_like_instrumental(*texte):
+    """Erkennt Hinweise auf eine Instrumentalversion in einem oder mehreren
+    Texten (z.B. Titel, Album, Genre) - z.B. "Song (Instrumental)" oder
+    Genre "Instrumental"."""
+    for text in texte:
+        if text and _INSTRUMENTAL_RE.search(text):
+            return True
+    return False
 
 # Grobe Heuristik: Genre-Schlagwort (kleingeschrieben) -> passende Stimmung(en).
 # Kein Ersatz fuer echtes Zuhoeren, aber ein brauchbarer erster Vorschlag.
@@ -160,26 +177,46 @@ def fix_existing_album_moods(conn):
     return aenderungen
 
 
+def _tag_existing_by_detector(conn, detector, mood_name):
+    """Vergibt 'mood_name' nachtraeglich an alle Titel, bei denen 'detector'
+    (aufgerufen mit der DB-Zeile) True liefert und die Stimmung noch nicht
+    haben. Gibt die Liste der betroffenen Titel zurueck [(song_id, titel), ...]."""
+    rows = conn.execute("SELECT * FROM songs").fetchall()
+
+    betroffen = []
+    for row in rows:
+        if not detector(row):
+            continue
+        bereits_markiert = conn.execute(
+            """SELECT 1 FROM song_moods sm JOIN moods m ON m.id = sm.mood_id
+               WHERE sm.song_id = ? AND m.name = ?""",
+            (row["id"], mood_name),
+        ).fetchone()
+        if bereits_markiert:
+            continue
+        assign_mood(conn, row["id"], mood_name)
+        betroffen.append((row["id"], row["title"]))
+
+    return betroffen
+
+
 def tag_existing_chart_hits(conn):
     """Vergibt die Stimmung "Charts" nachtraeglich an bereits importierte
     Titel, deren Album-Feld einen Chart-Hinweis enthaelt (Album bleibt
     dabei unveraendert). Gibt die Liste der betroffenen Titel zurueck
     [(song_id, titel), ...]."""
-    rows = conn.execute(
-        "SELECT id, title, album FROM songs WHERE album IS NOT NULL AND album != ''"
-    ).fetchall()
+    return _tag_existing_by_detector(
+        conn, lambda row: bool(row["album"]) and looks_like_chart_hit(row["album"]), CHART_MOOD_NAME
+    )
 
-    betroffen = []
-    for row in rows:
-        if looks_like_chart_hit(row["album"]):
-            bereits_markiert = conn.execute(
-                """SELECT 1 FROM song_moods sm JOIN moods m ON m.id = sm.mood_id
-                   WHERE sm.song_id = ? AND m.name = ?""",
-                (row["id"], CHART_MOOD_NAME),
-            ).fetchone()
-            if bereits_markiert:
-                continue
-            assign_mood(conn, row["id"], CHART_MOOD_NAME)
-            betroffen.append((row["id"], row["title"]))
 
-    return betroffen
+def tag_existing_instrumentals(conn):
+    """Vergibt die Stimmung "Instrumental" nachtraeglich an bereits
+    importierte Titel, bei denen Titel, Album oder Genre einen Hinweis auf
+    eine Instrumentalversion enthalten. Gibt die Liste der betroffenen
+    Titel zurueck [(song_id, titel), ...]."""
+    return _tag_existing_by_detector(
+        conn,
+        lambda row: looks_like_instrumental(row["title"], row["album"], row["genre"]),
+        INSTRUMENTAL_MOOD_NAME,
+    )

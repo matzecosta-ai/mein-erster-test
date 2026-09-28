@@ -33,6 +33,47 @@ def test_looks_like_chart_hit():
     assert not moods.looks_like_chart_hit(None)
 
 
+def test_looks_like_instrumental():
+    assert moods.looks_like_instrumental("Song Title (Instrumental)")
+    assert moods.looks_like_instrumental(None, "Instrumentalversion", None)
+    assert moods.looks_like_instrumental(None, None, "Instrumental")  # Genre-Feld
+    assert not moods.looks_like_instrumental("Normaler Titel", "Normales Album", "Pop")
+    assert not moods.looks_like_instrumental()
+    assert not moods.looks_like_instrumental(None, None, None)
+
+
+def test_tag_existing_instrumentals_prueft_titel_album_und_genre(tmp_path):
+    db_path = tmp_path / "test.db"
+    with db.connect(db_path) as conn:
+        conn.execute(
+            "INSERT INTO songs (title, artist, album, filepath) VALUES (?,?,?,?)",
+            ("Sonnenschein (Instrumental)", "Band", "Album X", str(tmp_path / "a.mp3")),
+        )
+        conn.execute(
+            "INSERT INTO songs (title, artist, album, genre, filepath) VALUES (?,?,?,?,?)",
+            ("Regenlied", "Band", "Album Y", "Instrumental", str(tmp_path / "b.mp3")),
+        )
+        conn.execute(
+            "INSERT INTO songs (title, artist, album, filepath) VALUES (?,?,?,?)",
+            ("Normales Lied", "Band", "Album Z", str(tmp_path / "c.mp3")),
+        )
+
+    with db.connect(db_path) as conn:
+        betroffen = moods.tag_existing_instrumentals(conn)
+        titel = sorted(t for _, t in betroffen)
+        assert titel == ["Regenlied", "Sonnenschein (Instrumental)"]
+
+        for titel_name in titel:
+            song = conn.execute("SELECT * FROM songs WHERE title=?", (titel_name,)).fetchone()
+            assert organizer._mood_names(conn, song["id"]) == ["Instrumental"]
+
+        normal = conn.execute("SELECT * FROM songs WHERE title='Normales Lied'").fetchone()
+        assert organizer._mood_names(conn, normal["id"]) == []
+
+        # Zweiter Lauf markiert nichts erneut
+        assert moods.tag_existing_instrumentals(conn) == []
+
+
 def test_tag_existing_chart_hits_markiert_nur_passende_und_nicht_doppelt(tmp_path):
     db_path = tmp_path / "test.db"
     with db.connect(db_path) as conn:
@@ -176,6 +217,65 @@ def test_import_directory_erkennt_chart_hit_im_album_feld(tmp_path, monkeypatch)
         song = conn.execute("SELECT * FROM songs WHERE title='Uptown Funk'").fetchone()
         assert song["album"] == "24K Magic Charts"  # Album bleibt erhalten
         assert "Charts" in organizer._mood_names(conn, song["id"])
+
+
+def test_import_directory_erkennt_instrumental_im_titel(tmp_path, monkeypatch):
+    musik_ordner = tmp_path / "musik"
+    musik_ordner.mkdir()
+    datei = musik_ordner / "song.mp3"
+    datei.write_bytes(b"")
+
+    fake_tags = {
+        "title": "Sonnenschein (Instrumental)",
+        "artist": "Band",
+        "album": "Ein ganz normales Album",
+        "genre": None,
+        "year": None,
+        "lc_nummer": None,
+        "duration_sec": None,
+    }
+    monkeypatch.setattr(importer.scanner, "read_tags", lambda _fp: fake_tags)
+    monkeypatch.setattr(importer.scanner, "is_valid_audio", lambda _fp: True)
+
+    db_path = tmp_path / "test.db"
+    with db.connect(db_path) as conn:
+        ergebnis = importer.import_directory(conn, musik_ordner)
+        assert ergebnis["instrumental"] == 1
+
+        song = conn.execute("SELECT * FROM songs WHERE title='Sonnenschein (Instrumental)'").fetchone()
+        assert "Instrumental" in organizer._mood_names(conn, song["id"])
+
+
+def test_import_directory_instrumental_im_album_verschluckt_album_nicht(tmp_path, monkeypatch):
+    """Regressionsschutz analog zum Charts-Bug: ein kurzes Album-Feld wie
+    "Pop Instrumental" (2 Woerter, enthaelt das jetzt bekannte Stimmungswort
+    "Instrumental") darf nicht komplett als Stimmung verschluckt werden."""
+    musik_ordner = tmp_path / "musik"
+    musik_ordner.mkdir()
+    datei = musik_ordner / "song.mp3"
+    datei.write_bytes(b"")
+
+    fake_tags = {
+        "title": "Irgendein Song",
+        "artist": "Band",
+        "album": "Pop Instrumental",
+        "genre": None,
+        "year": None,
+        "lc_nummer": None,
+        "duration_sec": None,
+    }
+    monkeypatch.setattr(importer.scanner, "read_tags", lambda _fp: fake_tags)
+    monkeypatch.setattr(importer.scanner, "is_valid_audio", lambda _fp: True)
+
+    db_path = tmp_path / "test.db"
+    with db.connect(db_path) as conn:
+        ergebnis = importer.import_directory(conn, musik_ordner)
+        assert ergebnis["instrumental"] == 1
+        assert ergebnis["album_fixed"] == 0
+
+        song = conn.execute("SELECT * FROM songs WHERE title='Irgendein Song'").fetchone()
+        assert song["album"] == "Pop Instrumental"  # Album bleibt erhalten
+        assert "Instrumental" in organizer._mood_names(conn, song["id"])
 
 
 def test_import_directory_ignoriert_ungueltige_audiodateien(tmp_path, monkeypatch):

@@ -22,10 +22,13 @@ def import_directory(conn, directory, auto_suggest_by_genre=True, on_progress=No
     bei sehr grossen Musiksammlungen.
 
     Erkennt ausserdem Chart-Hinweise im Album-Feld (z.B. "... Charts",
-    "Chart-Hit") und vergibt dafuer zusaetzlich die Stimmung "Charts".
+    "Chart-Hit") und vergibt dafuer zusaetzlich die Stimmung "Charts", sowie
+    Instrumental-Hinweise in Titel/Album/Genre fuer die Stimmung
+    "Instrumental".
 
     Gibt ein Dict mit Zaehlwerten zurueck: added, skipped, ignoriert
-    (keine echte Audiodatei), album_fixed, genre_suggested, chart_hits.
+    (keine echte Audiodatei), album_fixed, genre_suggested, chart_hits,
+    instrumental.
     """
     known_moods = moods.get_known_moods(conn)
     ergebnis = {
@@ -35,6 +38,7 @@ def import_directory(conn, directory, auto_suggest_by_genre=True, on_progress=No
         "album_fixed": 0,
         "genre_suggested": 0,
         "chart_hits": 0,
+        "instrumental": 0,
     }
 
     dateien = list(scanner.find_audio_files(Path(directory)))
@@ -59,12 +63,13 @@ def import_directory(conn, directory, auto_suggest_by_genre=True, on_progress=No
         tags = scanner.read_tags(filepath)
         album = tags["album"]
         ist_chart_hit = moods.looks_like_chart_hit(album)
+        ist_sonderhinweis = ist_chart_hit or moods.looks_like_instrumental(album)
         stimmung_aus_album = None
-        if album and not ist_chart_hit and moods.looks_like_mood(album, known_moods):
-            # Nur pruefen, wenn es KEIN Chart-Hinweis ist: sonst wuerde ein
-            # echter (kurzer) Albumtitel wie "24K Magic Charts" faelschlich
-            # komplett als Stimmung verschluckt statt nur den Chart-Hinweis
-            # zusaetzlich zu vergeben.
+        if album and not ist_sonderhinweis and moods.looks_like_mood(album, known_moods):
+            # Nur pruefen, wenn es KEIN Chart-/Instrumental-Hinweis ist: sonst
+            # wuerde ein echter (kurzer) Albumtitel wie "24K Magic Charts"
+            # faelschlich komplett als Stimmung verschluckt statt nur den
+            # Hinweis zusaetzlich zu vergeben.
             stimmung_aus_album = album.strip()
             album = None
         elif ist_chart_hit and moods.is_pure_chart_label(album):
@@ -103,5 +108,9 @@ def import_directory(conn, directory, auto_suggest_by_genre=True, on_progress=No
         if moods.looks_like_chart_hit(tags["album"]):
             moods.assign_mood(conn, song_id, moods.CHART_MOOD_NAME)
             ergebnis["chart_hits"] += 1
+
+        if moods.looks_like_instrumental(tags["title"], tags["album"], tags["genre"]):
+            moods.assign_mood(conn, song_id, moods.INSTRUMENTAL_MOOD_NAME)
+            ergebnis["instrumental"] += 1
 
     return ergebnis

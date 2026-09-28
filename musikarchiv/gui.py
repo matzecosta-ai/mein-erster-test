@@ -133,6 +133,9 @@ class MusikArchivApp(tk.Tk):
         werkzeuge_menu.add_command(
             label="Chart-Hits markieren", command=self.tag_chart_hits
         )
+        werkzeuge_menu.add_command(
+            label="Instrumental-Titel markieren", command=self.tag_instrumentals
+        )
         ttk.Menubutton(toolbar, text="Werkzeuge ▾", menu=werkzeuge_menu).pack(
             side="left", padx=(0, 8)
         )
@@ -810,6 +813,11 @@ class MusikArchivApp(tk.Tk):
                 f"\n{ergebnis['chart_hits']} davon als Chart-Hit erkannt "
                 "(Stimmung 'Charts' vergeben)."
             )
+        if ergebnis["instrumental"]:
+            text += (
+                f"\n{ergebnis['instrumental']} davon als Instrumental erkannt "
+                "(Stimmung 'Instrumental' vergeben)."
+            )
         messagebox.showinfo("Import abgeschlossen", text)
 
     def delete_selected(self):
@@ -882,6 +890,23 @@ class MusikArchivApp(tk.Tk):
         titel_liste = "\n".join(f"- {titel}" for _, titel in betroffen)
         messagebox.showinfo(
             "Chart-Hits markiert", f"{len(betroffen)} Titel als 'Charts' markiert:\n{titel_liste}"
+        )
+
+    def tag_instrumentals(self):
+        with db.connect(self.db_path) as conn:
+            betroffen = moods.tag_existing_instrumentals(conn)
+        self.refresh_moods()
+        self._refresh_aktuelle_ansicht()
+        if not betroffen:
+            messagebox.showinfo(
+                "Nichts gefunden",
+                "Keine Titel mit Instrumental-Hinweis gefunden (oder bereits markiert).",
+            )
+            return
+        titel_liste = "\n".join(f"- {titel}" for _, titel in betroffen)
+        messagebox.showinfo(
+            "Instrumental-Titel markiert",
+            f"{len(betroffen)} Titel als 'Instrumental' markiert:\n{titel_liste}",
         )
 
     def suggest_mood(self):

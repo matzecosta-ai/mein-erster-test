@@ -110,6 +110,12 @@ Es öffnet sich **ein** Fenster mit:
   unverändert erhalten. So lässt sich über den Stimmungs-Filter oder die
   Stimmungs-Suche gezielt nach Chart-Hits filtern. Für bereits importierte
   Titel: "Werkzeuge ▾" → "Chart-Hits markieren".
+- **Instrumental-Versionen erkennen**: enthält Titel, Album oder Genre
+  einen Hinweis wie "Instrumental" oder "Instrumentalversion" (z.B.
+  "Sonnenschein (Instrumental)"), wird automatisch zusätzlich die
+  Stimmung "Instrumental" vergeben – Titel/Album bleiben unverändert.
+  Für bereits importierte Titel: "Werkzeuge ▾" → "Instrumental-Titel
+  markieren".
 
 Für ein Icon auf dem Desktop:
 - **Windows:** `Verknuepfung_erstellen.bat` einmal per Doppelklick
@@ -210,6 +216,15 @@ python -m musikarchiv tag-charts
 
 Vergibt die Stimmung "Charts" an bereits importierte Titel, deren
 Album-Feld einen Chart-Hinweis enthält (Album bleibt unverändert).
+
+### 8. Instrumental-Titel nachträglich markieren
+
+```bash
+python -m musikarchiv tag-instrumental
+```
+
+Vergibt die Stimmung "Instrumental" an bereits importierte Titel, deren
+Titel, Album oder Genre einen Instrumental-Hinweis enthält.
 
 ## Tests
 

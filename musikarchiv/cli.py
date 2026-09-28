@@ -39,6 +39,11 @@ def cmd_import(args):
                 f"  {ergebnis['chart_hits']} davon als Chart-Hit erkannt "
                 "(Stimmung 'Charts' vergeben)."
             )
+        if ergebnis["instrumental"]:
+            print(
+                f"  {ergebnis['instrumental']} davon als Instrumental erkannt "
+                "(Stimmung 'Instrumental' vergeben)."
+            )
 
 
 def cmd_fix_album_moods(args):
@@ -59,6 +64,17 @@ def cmd_tag_charts(args):
             print("Keine Chart-Hits gefunden (oder bereits markiert).")
             return
         print(f"{len(betroffen)} Titel als Chart-Hit markiert:")
+        for _, titel in betroffen:
+            print(f"  '{titel}'")
+
+
+def cmd_tag_instrumental(args):
+    with db.connect(args.db) as conn:
+        betroffen = moods.tag_existing_instrumentals(conn)
+        if not betroffen:
+            print("Keine Instrumental-Titel gefunden (oder bereits markiert).")
+            return
+        print(f"{len(betroffen)} Titel als Instrumental markiert:")
         for _, titel in betroffen:
             print(f"  '{titel}'")
 
@@ -232,6 +248,12 @@ def build_parser():
         help="Bereits importierte Titel mit Chart-Hinweis im Album-Feld als 'Charts' markieren",
     )
     p.set_defaults(func=cmd_tag_charts)
+
+    p = sub.add_parser(
+        "tag-instrumental",
+        help="Bereits importierte Titel mit Instrumental-Hinweis als 'Instrumental' markieren",
+    )
+    p.set_defaults(func=cmd_tag_instrumental)
 
     p = sub.add_parser(
         "delete",
