@@ -371,6 +371,51 @@ def test_album_ansicht_gruppiert_titel_zu_alben(tmp_path):
         app.destroy()
 
 
+def test_album_gruppierung_ignoriert_abweichende_schreibweise(tmp_path):
+    """Regressionstest fuer den gemeldeten Fehler: Titel desselben Albums
+    landeten jeweils in einer eigenen Album-Zeile, weil Interpret/Album bei
+    echten Dateien oft minimal abweichen (Leerzeichen, Gross-/Klein-
+    schreibung - je nachdem, womit sie mal getaggt wurden)."""
+    db_path = tmp_path / "test.db"
+    with db.connect(db_path) as conn:
+        conn.execute(
+            "INSERT INTO songs (title, artist, album, filepath) VALUES (?,?,?,?)",
+            ("Titel 1", "Bruno Mars", "24K Magic", str(tmp_path / "1.mp3")),
+        )
+        conn.execute(
+            "INSERT INTO songs (title, artist, album, filepath) VALUES (?,?,?,?)",
+            ("Titel 2", "Bruno Mars ", "24k magic", str(tmp_path / "2.mp3")),
+        )
+        conn.execute(
+            "INSERT INTO songs (title, artist, album, filepath) VALUES (?,?,?,?)",
+            ("Titel 3", " bruno mars", " 24K Magic ", str(tmp_path / "3.mp3")),
+        )
+
+    app = _app_or_skip(db_path)
+    app.update()
+    try:
+        app.view_mode_var.set("alben")
+        app.on_view_mode_changed()
+        app.update()
+
+        album_zeilen = app.album_tree.get_children()
+        assert len(album_zeilen) == 1  # alle drei gehoeren zu einem Album
+
+        kinder = app.album_tree.get_children(album_zeilen[0])
+        titel = sorted(app.album_tree.item(k, "text") for k in kinder)
+        assert titel == ["Titel 1", "Titel 2", "Titel 3"]
+        assert app.album_tree.item(album_zeilen[0], "values")[2] == "3"  # Anzahl
+
+        # Drilldown ("Titel dieses Albums anzeigen") findet trotz
+        # abweichender Schreibweise ebenfalls alle drei Titel.
+        app.album_tree.selection_set(album_zeilen[0])
+        app.album_titel_anzeigen()
+        app.update()
+        assert len(app.tree.get_children()) == 3
+    finally:
+        app.destroy()
+
+
 def test_album_aufklappen_zeigt_enthaltene_titel(tmp_path):
     db_path = tmp_path / "test.db"
     _seed_alben(db_path, tmp_path)

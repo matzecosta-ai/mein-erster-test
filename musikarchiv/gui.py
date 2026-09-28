@@ -448,16 +448,19 @@ class MusikArchivApp(tk.Tk):
             )
             params.append(stimmung)
         if self.album_filter is not None:
+            # Wie beim Gruppieren der Album-Ansicht: Gross-/Kleinschreibung
+            # und Leerzeichen am Rand spielen keine Rolle, damit alle Titel
+            # des Albums gefunden werden, auch bei leicht abweichenden Tags.
             artist, album = self.album_filter
             if artist is None:
                 conditions.append("s.artist IS NULL")
             else:
-                conditions.append("s.artist = ?")
+                conditions.append("TRIM(s.artist) = TRIM(?) COLLATE NOCASE")
                 params.append(artist)
             if album is None:
                 conditions.append("s.album IS NULL")
             else:
-                conditions.append("s.album = ?")
+                conditions.append("TRIM(s.album) = TRIM(?) COLLATE NOCASE")
                 params.append(album)
         if conditions:
             query += " WHERE " + " AND ".join(conditions)
@@ -539,19 +542,26 @@ class MusikArchivApp(tk.Tk):
             rows = conn.execute(query, params).fetchall()
 
         # In Python nach (Interpret, Album) gruppieren - dabei die
-        # Reihenfolge des ersten Auftretens je Gruppe beibehalten.
+        # Reihenfolge des ersten Auftretens je Gruppe beibehalten. Der
+        # Gruppenschluessel wird normalisiert (Gross-/Kleinschreibung und
+        # Leerzeichen am Rand egal), da bei echten Musikdateien der
+        # Interpret/Album-Text zwischen Titeln desselben Albums oft minimal
+        # abweicht (z.B. durch unterschiedliche Tagging-Programme) - sonst
+        # wuerde jeder Titel eine eigene "Album"-Zeile fuer sich bekommen.
         gruppen_songs = {}
+        gruppen_anzeige = {}
         gruppen_reihenfolge = []
         for row in rows:
-            key = (row["artist"], row["album"])
+            key = (_normalisiert(row["artist"]), _normalisiert(row["album"]))
             if key not in gruppen_songs:
                 gruppen_songs[key] = []
+                gruppen_anzeige[key] = (row["artist"], row["album"])
                 gruppen_reihenfolge.append(key)
             gruppen_songs[key].append(row)
 
         zusammenfassungen = []
         for key in gruppen_reihenfolge:
-            artist, album = key
+            artist, album = gruppen_anzeige[key]
             songs = gruppen_songs[key]
             jahre = [s["year"] for s in songs if s["year"]]
             album_moods = []
@@ -1026,6 +1036,12 @@ def _format_dauer(duration_sec):
         return ""
     minuten, sekunden = divmod(int(duration_sec), 60)
     return f"{minuten}:{sekunden:02d}"
+
+
+def _normalisiert(text):
+    """Fuer Vergleiche, bei denen Gross-/Kleinschreibung und Leerzeichen am
+    Rand keine Rolle spielen sollen (z.B. Interpret/Album gruppieren)."""
+    return (text or "").strip().lower()
 
 
 def main():
