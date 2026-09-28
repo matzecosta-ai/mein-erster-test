@@ -50,16 +50,20 @@ Es öffnet sich **ein** Fenster mit:
   Klick auf dieselbe Spalte dreht die Reihenfolge um (▲/▼-Pfeil zeigt an,
   wonach gerade sortiert ist)
 - **Ansicht umschalten: Titel / Alben** (Umschalter oben in der
-  Werkzeugleiste): Die Album-Ansicht fasst alle Titel eines Albums zu
-  einer aufklappbaren Zeile zusammen (mit Interpret, Jahr, Anzahl Titel,
-  Stimmungen). Auf den Pfeil bzw. das Album klicken klappt es auf und
-  zeigt die enthaltenen Titel eingerückt darunter – die Alben bleiben
-  standardmäßig zugeklappt, bis man draufklickt. Ein Titel darin lässt
-  sich wie in der Titel-Ansicht anklicken (Details, Stimmungen bearbeiten)
-  und per Doppelklick abspielen. Zusätzlich: Album auswählen und "Titel
-  dieses Albums anzeigen" wechselt in die volle Titel-Ansicht, gefiltert
-  auf genau dieses Album (z.B. um dort auch nach Jahr/LC-Nummer zu
-  sortieren); "Filter aufheben" zeigt wieder alle Titel.
+  Werkzeugleiste): Die Album-Ansicht fasst alle Titel **desselben Albums**
+  zu einer aufklappbaren Zeile zusammen (mit Interpret, Jahr, Anzahl
+  Titel, Stimmungen) – gruppiert wird nach Albumname allein, nicht nach
+  Interpret, damit z.B. Feature-Titel ("Bruno Mars feat. Cardi B") nicht
+  aus dem Album herausfallen; haben die Titel eines Albums unterschied­
+  liche Interpreten, steht dort "Verschiedene Interpreten". Auf den Pfeil
+  bzw. das Album klicken klappt es auf und zeigt die enthaltenen Titel
+  eingerückt darunter – die Alben bleiben standardmäßig zugeklappt, bis
+  man draufklickt. Ein Titel darin lässt sich wie in der Titel-Ansicht
+  anklicken (Details, Stimmungen bearbeiten) und per Doppelklick
+  abspielen. Zusätzlich: Album auswählen und "Titel dieses Albums
+  anzeigen" wechselt in die volle Titel-Ansicht, gefiltert auf genau
+  dieses Album (z.B. um dort auch nach Jahr/LC-Nummer zu sortieren);
+  "Filter aufheben" zeigt wieder alle Titel.
 - **Mehrfachauswahl**: mehrere Titel mit Strg-Klick (macOS: Cmd-Klick)
   oder Umschalt-Klick auswählen, z.B. um sie gemeinsam zu löschen
 - **Titel löschen**: markierte Titel per Button "Ausgewählte löschen"

@@ -4,6 +4,7 @@ import queue
 import sys
 import threading
 import tkinter as tk
+import unicodedata
 from pathlib import Path
 from tkinter import filedialog, messagebox, ttk
 
@@ -448,20 +449,22 @@ class MusikArchivApp(tk.Tk):
             )
             params.append(stimmung)
         if self.album_filter is not None:
-            # Wie beim Gruppieren der Album-Ansicht: Gross-/Kleinschreibung
-            # und Leerzeichen am Rand spielen keine Rolle, damit alle Titel
-            # des Albums gefunden werden, auch bei leicht abweichenden Tags.
-            artist, album = self.album_filter
-            if artist is None:
-                conditions.append("s.artist IS NULL")
-            else:
-                conditions.append("TRIM(s.artist) = TRIM(?) COLLATE NOCASE")
-                params.append(artist)
-            if album is None:
-                conditions.append("s.album IS NULL")
-            else:
+            # Wie beim Gruppieren der Album-Ansicht: gefiltert wird nach
+            # Album allein (Interpret spielt keine Rolle, wegen Feature-
+            # Titeln o.ae.); nur Titel ganz ohne Album werden nach Interpret
+            # gefiltert. Gross-/Kleinschreibung und Leerzeichen am Rand
+            # spielen dabei keine Rolle (wie bei der Gruppierung).
+            filter_art, filter_wert = self.album_filter
+            if filter_art == "album":
                 conditions.append("TRIM(s.album) = TRIM(?) COLLATE NOCASE")
-                params.append(album)
+                params.append(filter_wert)
+            else:
+                conditions.append("(s.album IS NULL OR TRIM(s.album) = '')")
+                if filter_wert is None:
+                    conditions.append("s.artist IS NULL")
+                else:
+                    conditions.append("TRIM(s.artist) = TRIM(?) COLLATE NOCASE")
+                    params.append(filter_wert)
         if conditions:
             query += " WHERE " + " AND ".join(conditions)
         sort_ausdruck = SORTIERBARE_SPALTEN.get(self.sort_column, "s.title")
@@ -491,10 +494,12 @@ class MusikArchivApp(tk.Tk):
             )
 
         if self.album_filter is not None:
-            artist, album = self.album_filter
-            self.filter_leiste_label.config(
-                text=f"Gefiltert nach Album: '{album or KEIN_ALBUM}' von {artist or '?'}"
-            )
+            filter_art, filter_wert = self.album_filter
+            if filter_art == "album":
+                beschriftung = f"Gefiltert nach Album: '{filter_wert}'"
+            else:
+                beschriftung = f"Gefiltert: Titel ohne Album von {filter_wert or '?'}"
+            self.filter_leiste_label.config(text=beschriftung)
             self.filter_leiste.pack(side="top", fill="x", before=self._panedwindow)
         else:
             self.filter_leiste.pack_forget()
@@ -541,28 +546,42 @@ class MusikArchivApp(tk.Tk):
         with db.connect(self.db_path) as conn:
             rows = conn.execute(query, params).fetchall()
 
-        # In Python nach (Interpret, Album) gruppieren - dabei die
-        # Reihenfolge des ersten Auftretens je Gruppe beibehalten. Der
-        # Gruppenschluessel wird normalisiert (Gross-/Kleinschreibung und
-        # Leerzeichen am Rand egal), da bei echten Musikdateien der
-        # Interpret/Album-Text zwischen Titeln desselben Albums oft minimal
-        # abweicht (z.B. durch unterschiedliche Tagging-Programme) - sonst
-        # wuerde jeder Titel eine eigene "Album"-Zeile fuer sich bekommen.
+        # In Python nach Album gruppieren (nicht nach Interpret+Album!): ein
+        # Album soll auch dann eine einzige Zeile ergeben, wenn einzelne
+        # Titel darin einen leicht anderen Interpreten-Eintrag haben (Feature-
+        # Titel, unterschiedliche Tagging-Programme, o.ae.). Nur Titel ganz
+        # ohne Album werden weiterhin je Interpret gruppiert (sonst wuerden
+        # saemtliche albumlosen Einzeltitel verschiedenster Interpreten in
+        # einen Topf geworfen). Der Vergleich ist ausserdem normalisiert
+        # (_normalisiert: Gross-/Kleinschreibung, doppelte/versteckte
+        # Leerzeichen, Unicode-Variationen egal).
         gruppen_songs = {}
         gruppen_anzeige = {}
         gruppen_reihenfolge = []
         for row in rows:
-            key = (_normalisiert(row["artist"]), _normalisiert(row["album"]))
+            album_norm = _normalisiert(row["album"])
+            if album_norm:
+                key = ("album", album_norm)
+            else:
+                key = ("kein_album", _normalisiert(row["artist"]))
             if key not in gruppen_songs:
                 gruppen_songs[key] = []
-                gruppen_anzeige[key] = (row["artist"], row["album"])
+                gruppen_anzeige[key] = row["album"]
                 gruppen_reihenfolge.append(key)
             gruppen_songs[key].append(row)
 
         zusammenfassungen = []
         for key in gruppen_reihenfolge:
-            artist, album = gruppen_anzeige[key]
+            art, _ = key
             songs = gruppen_songs[key]
+            album = gruppen_anzeige[key]
+
+            interpreten_norm = {_normalisiert(s["artist"]) for s in songs}
+            if len(interpreten_norm) == 1:
+                artist_anzeige = songs[0]["artist"]
+            else:
+                artist_anzeige = "Verschiedene Interpreten"
+
             jahre = [s["year"] for s in songs if s["year"]]
             album_moods = []
             for s in songs:
@@ -571,7 +590,9 @@ class MusikArchivApp(tk.Tk):
                         album_moods.append(name)
             zusammenfassungen.append(
                 {
-                    "artist": artist,
+                    "filter_art": art,
+                    "filter_wert": songs[0]["artist"] if art == "kein_album" else album,
+                    "artist": artist_anzeige,
                     "album": album,
                     "album_anzeige": album or KEIN_ALBUM,
                     "anzahl": len(songs),
@@ -604,7 +625,7 @@ class MusikArchivApp(tk.Tk):
                     gruppe["moods"],
                 ),
             )
-            self._album_group_keys[parent_iid] = (gruppe["artist"], gruppe["album"])
+            self._album_group_keys[parent_iid] = (gruppe["filter_art"], gruppe["filter_wert"])
             for song in gruppe["songs"]:
                 self.album_tree.insert(
                     parent_iid,
@@ -650,8 +671,7 @@ class MusikArchivApp(tk.Tk):
         iid = selection[0]
         if iid.startswith("song:"):
             iid = self.album_tree.parent(iid)
-        artist, album = self._album_group_keys[iid]
-        self.album_filter = (artist, album)
+        self.album_filter = self._album_group_keys[iid]
         self.view_mode_var.set("titel")
         self.on_view_mode_changed()
 
@@ -1039,9 +1059,15 @@ def _format_dauer(duration_sec):
 
 
 def _normalisiert(text):
-    """Fuer Vergleiche, bei denen Gross-/Kleinschreibung und Leerzeichen am
-    Rand keine Rolle spielen sollen (z.B. Interpret/Album gruppieren)."""
-    return (text or "").strip().lower()
+    """Fuer Vergleiche, bei denen Gross-/Kleinschreibung, doppelte/versteckte
+    Leerzeichen (auch geschuetzte Leerzeichen) und unterschiedliche Unicode-
+    Schreibweisen desselben Zeichens keine Rolle spielen sollen (z.B. beim
+    Gruppieren von Alben, deren Tags mit verschiedenen Programmen
+    geschrieben wurden)."""
+    if not text:
+        return ""
+    text = unicodedata.normalize("NFKC", text)
+    return " ".join(text.split()).lower()
 
 
 def main():

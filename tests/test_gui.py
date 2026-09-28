@@ -416,6 +416,46 @@ def test_album_gruppierung_ignoriert_abweichende_schreibweise(tmp_path):
         app.destroy()
 
 
+def test_album_gruppierung_ignoriert_abweichenden_interpreten(tmp_path):
+    """Regressionstest fuer den zweiten gemeldeten Fall: Titel desselben
+    Albums landeten weiterhin einzeln, weil der Interpret-Eintrag pro Titel
+    variiert (z.B. Feature-Titel: "Bruno Mars" vs. "Bruno Mars feat. X").
+    Gruppiert wird jetzt nach Album allein, der Interpret spielt fuer die
+    Gruppierung keine Rolle mehr."""
+    db_path = tmp_path / "test.db"
+    with db.connect(db_path) as conn:
+        conn.execute(
+            "INSERT INTO songs (title, artist, album, filepath) VALUES (?,?,?,?)",
+            ("Titel 1", "Bruno Mars", "24K Magic", str(tmp_path / "1.mp3")),
+        )
+        conn.execute(
+            "INSERT INTO songs (title, artist, album, filepath) VALUES (?,?,?,?)",
+            ("Titel 2", "Bruno Mars feat. Cardi B", "24K Magic", str(tmp_path / "2.mp3")),
+        )
+
+    app = _app_or_skip(db_path)
+    app.update()
+    try:
+        app.view_mode_var.set("alben")
+        app.on_view_mode_changed()
+        app.update()
+
+        album_zeilen = app.album_tree.get_children()
+        assert len(album_zeilen) == 1
+
+        kinder = app.album_tree.get_children(album_zeilen[0])
+        assert len(kinder) == 2
+        # Unterschiedliche Interpreten -> Sammelbezeichnung statt falscher Auswahl
+        assert app.album_tree.item(album_zeilen[0], "values")[0] == "Verschiedene Interpreten"
+
+        app.album_tree.selection_set(album_zeilen[0])
+        app.album_titel_anzeigen()
+        app.update()
+        assert len(app.tree.get_children()) == 2
+    finally:
+        app.destroy()
+
+
 def test_album_aufklappen_zeigt_enthaltene_titel(tmp_path):
     db_path = tmp_path / "test.db"
     _seed_alben(db_path, tmp_path)
@@ -472,7 +512,7 @@ def test_album_titel_anzeigen_filtert_titelansicht(tmp_path, monkeypatch):
         app.update()
 
         assert app.view_mode_var.get() == "titel"
-        assert app.album_filter == ("Bruno Mars", "24K Magic")
+        assert app.album_filter == ("album", "24K Magic")
         titel = sorted(app.tree.item(i, "values")[0] for i in app.tree.get_children())
         assert titel == ["24K Magic", "That's What I Like"]
 
