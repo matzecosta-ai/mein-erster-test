@@ -157,7 +157,8 @@ class MusikArchivApp(tk.Tk):
         )
         werkzeuge_menu.add_separator()
         werkzeuge_menu.add_command(
-            label="LC-Nummern online nachschlagen …", command=self.lc_nummern_nachschlagen
+            label="LC-Nummern für alle Titel online nachschlagen …",
+            command=self.lc_nummern_nachschlagen,
         )
         ttk.Menubutton(toolbar, text="Werkzeuge ▾", menu=werkzeuge_menu).pack(
             side="left", padx=(0, 8)
@@ -311,7 +312,16 @@ class MusikArchivApp(tk.Tk):
         ttk.Label(detail_frame, textvariable=self.detail_artist_var).pack(anchor="w")
         ttk.Label(detail_frame, textvariable=self.detail_album_var).pack(anchor="w")
         ttk.Label(detail_frame, textvariable=self.detail_year_var).pack(anchor="w")
-        ttk.Label(detail_frame, textvariable=self.detail_lc_var).pack(anchor="w")
+
+        lc_row = ttk.Frame(detail_frame)
+        lc_row.pack(fill="x", anchor="w")
+        ttk.Label(lc_row, textvariable=self.detail_lc_var).pack(side="left")
+        ttk.Button(
+            lc_row,
+            text="🔍 LC-Nummer online suchen",
+            command=self.lc_nummer_fuer_titel_suchen,
+        ).pack(side="left", padx=(8, 0))
+
         ttk.Label(
             detail_frame, textvariable=self.detail_path_var, wraplength=260, foreground="#666"
         ).pack(anchor="w", pady=(4, 4))
@@ -1094,6 +1104,84 @@ class MusikArchivApp(tk.Tk):
             teile.append(f"{len(fehler)} Album(en) mit Verbindungsfehler:\n{details}")
 
         messagebox.showinfo("LC-Nummern-Suche abgeschlossen", "\n\n".join(teile))
+
+    def lc_nummer_fuer_titel_suchen(self):
+        if self.selected_song_id is None:
+            messagebox.showwarning(
+                "Kein Titel ausgewählt",
+                "Bitte zuerst genau einen einzelnen Titel in der Liste auswählen.",
+            )
+            return
+
+        song_id = self.selected_song_id
+        titel = self.detail_title_var.get()
+
+        fenster = tk.Toplevel(self)
+        fenster.title("LC-Nummer wird gesucht…")
+        fenster.resizable(False, False)
+        fenster.transient(self)
+        fenster.protocol("WM_DELETE_WINDOW", lambda: None)
+        ttk.Label(
+            fenster, text=f"Suche LC-Nummer für '{titel}' …", padding=(16, 16, 16, 16)
+        ).pack()
+
+        fenster.update_idletasks()
+        x = self.winfo_rootx() + (self.winfo_width() - fenster.winfo_width()) // 2
+        y = self.winfo_rooty() + (self.winfo_height() - fenster.winfo_height()) // 2
+        fenster.geometry(f"+{max(x, 0)}+{max(y, 0)}")
+        fenster.grab_set()
+
+        out_queue = queue.Queue()
+        thread = threading.Thread(
+            target=self._lc_lookup_einzel_worker, args=(song_id, out_queue), daemon=True
+        )
+        thread.start()
+        self.after(80, self._lc_lookup_einzel_poll, fenster, out_queue)
+
+    def _lc_lookup_einzel_worker(self, song_id, out_queue):
+        try:
+            with db.connect(self.db_path) as conn:
+                status, wert = lc_lookup.lc_nummer_fuer_song_nachschlagen(conn, song_id)
+            out_queue.put(("done", status, wert))
+        except Exception as exc:
+            out_queue.put(("error", str(exc)))
+
+    def _lc_lookup_einzel_poll(self, fenster, out_queue):
+        try:
+            nachricht = out_queue.get_nowait()
+        except queue.Empty:
+            self.after(80, self._lc_lookup_einzel_poll, fenster, out_queue)
+            return
+
+        fenster.grab_release()
+        fenster.destroy()
+
+        if nachricht[0] == "error":
+            messagebox.showerror(
+                "Suche fehlgeschlagen",
+                f"Bei der Online-Suche ist ein Fehler aufgetreten:\n{nachricht[1]}",
+            )
+            return
+
+        _, status, wert = nachricht
+        self.refresh_songs()
+        self.on_select_song()
+
+        if status == "gefunden":
+            messagebox.showinfo("LC-Nummer gefunden", f"LC-Nummer gefunden und eingetragen: {wert}")
+        elif status == "bereits_vorhanden":
+            messagebox.showinfo(
+                "Bereits vorhanden", f"Dieser Titel hat bereits eine LC-Nummer: {wert}"
+            )
+        elif status == "keine_angaben":
+            messagebox.showinfo(
+                "Keine Suche möglich",
+                "Für diesen Titel fehlt Interpret oder Album - eine Online-Suche ist nicht möglich.",
+            )
+        else:
+            messagebox.showinfo(
+                "Nicht gefunden", "Für diesen Titel wurde online keine passende LC-Nummer gefunden."
+            )
 
     def suggest_mood(self):
         if self.selected_song_id is None:

@@ -829,3 +829,103 @@ def test_lc_nummern_nachschlagen_ohne_bestaetigung_passiert_nichts(tmp_path, mon
         assert row["lc_nummer"] in (None, "")
     finally:
         app.destroy()
+
+
+def test_lc_nummer_fuer_titel_suchen_durchsucht_nur_ausgewaehlten_titel(tmp_path, monkeypatch):
+    import json
+
+    from musikarchiv import lc_lookup
+
+    db_path = tmp_path / "test.db"
+    with db.connect(db_path) as conn:
+        conn.execute(
+            "INSERT INTO songs (title, artist, album, filepath) VALUES (?,?,?,?)",
+            ("24K Magic", "Bruno Mars", "24K Magic", str(tmp_path / "1.mp3")),
+        )
+        conn.execute(
+            "INSERT INTO songs (title, artist, album, filepath) VALUES (?,?,?,?)",
+            ("That's What I Like", "Bruno Mars", "24K Magic", str(tmp_path / "2.mp3")),
+        )
+        ausgewaehlte_id = conn.execute(
+            "SELECT id FROM songs WHERE title='24K Magic'"
+        ).fetchone()["id"]
+
+    antworten = [
+        {"releases": [{"id": "abc", "score": "100"}]},
+        {"label-info": [{"label": {"label-code": 6861}}]},
+    ]
+
+    class _FakeResponse:
+        def __init__(self, payload):
+            self._payload = json.dumps(payload).encode("utf-8")
+
+        def read(self):
+            return self._payload
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *a):
+            return False
+
+    monkeypatch.setattr(
+        lc_lookup.urllib.request, "urlopen", lambda *a, **k: _FakeResponse(antworten.pop(0))
+    )
+    monkeypatch.setattr(lc_lookup.time, "sleep", lambda _s: None)
+
+    meldungen = []
+    monkeypatch.setattr(
+        gui.messagebox, "showinfo", lambda titel, text: meldungen.append(text)
+    )
+
+    app = _app_or_skip(db_path)
+    app.update()
+    try:
+        app.tree.selection_set(str(ausgewaehlte_id))
+        app.update()
+
+        app.lc_nummer_fuer_titel_suchen()
+
+        deadline = time.time() + 10
+        while time.time() < deadline and not meldungen:
+            app.update()
+            time.sleep(0.02)
+
+        assert meldungen, "Suche wurde nicht innerhalb der erwarteten Zeit abgeschlossen"
+        assert "LC-06861" in meldungen[0]
+
+        with db.connect(db_path) as conn:
+            rows = {r["title"]: r["lc_nummer"] for r in conn.execute("SELECT title, lc_nummer FROM songs")}
+        assert rows["24K Magic"] == "LC-06861"
+        assert rows["That's What I Like"] in (None, "")
+    finally:
+        app.destroy()
+
+
+def test_lc_nummer_fuer_titel_suchen_ohne_auswahl_warnt(tmp_path, monkeypatch):
+    db_path = tmp_path / "test.db"
+    with db.connect(db_path) as conn:
+        conn.execute(
+            "INSERT INTO songs (title, artist, album, filepath) VALUES (?,?,?,?)",
+            ("24K Magic", "Bruno Mars", "24K Magic", str(tmp_path / "1.mp3")),
+        )
+
+    warnungen = []
+    monkeypatch.setattr(
+        gui.messagebox, "showwarning", lambda titel, text: warnungen.append(text)
+    )
+
+    from musikarchiv import lc_lookup
+
+    def darf_nicht_aufgerufen_werden(*a, **k):
+        raise AssertionError("Es haette keine Anfrage gestellt werden duerfen")
+
+    monkeypatch.setattr(lc_lookup.urllib.request, "urlopen", darf_nicht_aufgerufen_werden)
+
+    app = _app_or_skip(db_path)
+    app.update()
+    try:
+        app.lc_nummer_fuer_titel_suchen()
+        assert warnungen
+    finally:
+        app.destroy()

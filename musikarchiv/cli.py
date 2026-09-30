@@ -113,6 +113,38 @@ def cmd_lookup_lc(args):
             print(f"  '{album}' von {artist}: {fehler}")
 
 
+def cmd_lookup_lc_single(args):
+    with db.connect(args.db) as conn:
+        matches = _find_song(conn, args.song)
+        if not matches:
+            print(f"Kein Titel gefunden für '{args.song}'.")
+            return
+        if len(matches) > 1:
+            print("Mehrere Titel gefunden, bitte die ID verwenden:")
+            for m in matches:
+                print(f"  [{m['id']}] {m['title']} - {m['artist'] or '?'}")
+            return
+        song = matches[0]
+        print(
+            f"Suche LC-Nummer für '{song['title']}' ({song['artist'] or '?'}) "
+            "online bei MusicBrainz …"
+        )
+        try:
+            status, wert = lc_lookup.lc_nummer_fuer_song_nachschlagen(conn, song["id"])
+        except Exception as exc:
+            print(f"Abgebrochen wegen eines unerwarteten Fehlers: {exc}")
+            return
+
+    if status == "gefunden":
+        print(f"LC-Nummer gefunden und eingetragen: {wert}")
+    elif status == "bereits_vorhanden":
+        print(f"Dieser Titel hat bereits eine LC-Nummer: {wert}")
+    elif status == "keine_angaben":
+        print("Für diesen Titel fehlt Interpret oder Album - eine Online-Suche ist nicht möglich.")
+    else:
+        print("Online wurde keine passende LC-Nummer gefunden.")
+
+
 def _find_song(conn, identifier):
     if identifier.isdigit():
         row = conn.execute("SELECT * FROM songs WHERE id = ?", (int(identifier),)).fetchone()
@@ -297,6 +329,16 @@ def build_parser():
         ),
     )
     p.set_defaults(func=cmd_lookup_lc)
+
+    p = sub.add_parser(
+        "lookup-lc-titel",
+        help=(
+            "LC-Nummer für genau einen Titel online bei MusicBrainz nachschlagen "
+            "(experimentell, braucht Internetverbindung)"
+        ),
+    )
+    p.add_argument("song", help="Titel-ID oder Teil des Titelnamens")
+    p.set_defaults(func=cmd_lookup_lc_single)
 
     p = sub.add_parser(
         "delete",

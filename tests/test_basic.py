@@ -1,7 +1,9 @@
+import json
 import struct
 import wave
 from pathlib import Path
 
+from musikarchiv import db, lc_lookup
 from musikarchiv.cli import main
 
 
@@ -117,6 +119,51 @@ def test_delete_entfernt_titel_aber_nicht_die_datei(tmp_path, capsys):
     main(["--db", str(db_path), "list"])
     out = capsys.readouterr().out
     assert "Keine Titel gefunden" in out
+
+
+def test_lookup_lc_titel_durchsucht_nur_den_einen_titel(tmp_path, capsys, monkeypatch):
+    db_path = tmp_path / "test.db"
+    with db.connect(db_path) as conn:
+        conn.execute(
+            "INSERT INTO songs (title, artist, album, filepath) VALUES (?,?,?,?)",
+            ("24K Magic", "Bruno Mars", "24K Magic", str(tmp_path / "1.mp3")),
+        )
+        conn.execute(
+            "INSERT INTO songs (title, artist, album, filepath) VALUES (?,?,?,?)",
+            ("That's What I Like", "Bruno Mars", "24K Magic", str(tmp_path / "2.mp3")),
+        )
+
+    antworten = [
+        {"releases": [{"id": "abc", "score": "100"}]},
+        {"label-info": [{"label": {"label-code": 6861}}]},
+    ]
+
+    class _FakeResponse:
+        def __init__(self, payload):
+            self._payload = json.dumps(payload).encode("utf-8")
+
+        def read(self):
+            return self._payload
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *a):
+            return False
+
+    monkeypatch.setattr(
+        lc_lookup.urllib.request, "urlopen", lambda *a, **k: _FakeResponse(antworten.pop(0))
+    )
+    monkeypatch.setattr(lc_lookup.time, "sleep", lambda _s: None)
+
+    main(["--db", str(db_path), "lookup-lc-titel", "24K Magic"])
+    out = capsys.readouterr().out
+    assert "LC-06861" in out
+
+    with db.connect(db_path) as conn:
+        rows = {r["title"]: r["lc_nummer"] for r in conn.execute("SELECT title, lc_nummer FROM songs")}
+    assert rows["24K Magic"] == "LC-06861"
+    assert rows["That's What I Like"] in (None, "")  # nur der eine Titel wurde durchsucht
 
 
 def test_delete_mehrere_titel_auf_einmal(tmp_path, capsys):

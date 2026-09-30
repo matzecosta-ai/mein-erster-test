@@ -128,22 +128,29 @@ Es öffnet sich **ein** Fenster mit:
   Stimmung "Instrumental" vergeben – Titel/Album bleiben unverändert.
   Für bereits importierte Titel: "Werkzeuge ▾" → "Instrumental-Titel
   markieren".
-- **LC-Nummern online nachschlagen** (experimentell): "Werkzeuge ▾" →
-  "LC-Nummern online nachschlagen …" sucht für alle Titel ohne LC-Nummer
-  (aber mit Interpret **und** Album) bei der freien Musikdatenbank
-  [MusicBrainz](https://musicbrainz.org) nach dem passenden Labelcode und
-  trägt ihn ein. Das ist ein **Bestmöglicher-Versuch, keine Garantie**:
-  MusicBrainz wird von Freiwilligen gepflegt, nicht jedes Album ist erfasst,
-  und in Einzelfällen (mehrere Pressungen, Wiederveröffentlichungen auf
-  anderen Labels) kann die Zuordnung danebenliegen – deshalb werden nur
-  sehr sichere Treffer automatisch übernommen. **Bestehende LC-Nummern
-  werden nie überschrieben.** Braucht eine Internetverbindung; bei vielen
-  verschiedenen Alben kann es etwas dauern (max. 1 Anfrage pro Sekunde,
-  aus Rücksicht auf den kostenlosen Dienst), läuft aber im Hintergrund mit
-  Fortschrittsanzeige, ohne das Programm zu blockieren. Am Ende zeigt eine
-  Übersicht, welche Alben gefunden wurden, welche nicht, und ob es
-  Verbindungsprobleme gab. Auch über die Kommandozeile verfügbar:
-  `python -m musikarchiv lookup-lc`.
+- **LC-Nummern online nachschlagen** (experimentell), in zwei Varianten:
+  Beide suchen bei der freien Musikdatenbank
+  [MusicBrainz](https://musicbrainz.org) nach dem passenden Labelcode. Das
+  ist ein **Bestmöglicher-Versuch, keine Garantie**: MusicBrainz wird von
+  Freiwilligen gepflegt, nicht jedes Album ist erfasst, und in
+  Einzelfällen (mehrere Pressungen, Wiederveröffentlichungen auf anderen
+  Labels) kann die Zuordnung danebenliegen – deshalb werden nur sehr
+  sichere Treffer automatisch übernommen. **Bestehende LC-Nummern werden
+  nie überschrieben.** Braucht in beiden Fällen eine Internetverbindung.
+  - **Nur für einen einzelnen Titel**: Titel in der Liste auswählen, dann
+    im Detailbereich rechts neben der LC-Nummer auf "🔍 LC-Nummer online
+    suchen" klicken. Es wird ausschließlich dieser eine Titel durchsucht
+    (nicht das ganze restliche Album). Auch über die Kommandozeile:
+    `python -m musikarchiv lookup-lc-titel "Titelname"`.
+  - **Für alle Titel im Archiv auf einmal**: "Werkzeuge ▾" → "LC-Nummern
+    für alle Titel online nachschlagen …" sucht für alle Titel ohne
+    LC-Nummer (mit Interpret **und** Album). Bei vielen verschiedenen
+    Alben kann es etwas dauern (max. 1 Anfrage pro Sekunde, aus Rücksicht
+    auf den kostenlosen Dienst), läuft aber im Hintergrund mit
+    Fortschrittsanzeige, ohne das Programm zu blockieren. Am Ende zeigt
+    eine Übersicht, welche Alben gefunden wurden, welche nicht, und ob es
+    Verbindungsprobleme gab. Auch über die Kommandozeile:
+    `python -m musikarchiv lookup-lc`.
 
 Für ein Icon auf dem Desktop:
 - **Windows:** `Verknuepfung_erstellen.bat` einmal per Doppelklick
@@ -256,16 +263,23 @@ Titel, Album oder Genre einen Instrumental-Hinweis enthält.
 
 ### 9. LC-Nummern online nachschlagen (experimentell)
 
+Nur für einen einzelnen Titel:
+
+```bash
+python -m musikarchiv lookup-lc-titel "Titelname"
+```
+
+Für alle Titel ohne LC-Nummer im ganzen Archiv:
+
 ```bash
 python -m musikarchiv lookup-lc
 ```
 
-Sucht für alle Titel ohne LC-Nummer (mit Interpret und Album) bei
-MusicBrainz (musicbrainz.org) nach dem Labelcode und trägt ihn ein.
-Braucht Internet, dauert bei vielen Alben etwas (max. 1 Anfrage/Sekunde).
-Bestehende LC-Nummern werden nie überschrieben; nur sehr sichere Treffer
-werden übernommen. Siehe Hinweis zur GUI-Variante weiter oben – das ist
-ein Bestmöglicher-Versuch, keine Garantie.
+Beide suchen bei MusicBrainz (musicbrainz.org) nach dem Labelcode und
+tragen ihn ein. Braucht Internet, dauert bei vielen Alben etwas (max. 1
+Anfrage/Sekunde). Bestehende LC-Nummern werden nie überschrieben; nur
+sehr sichere Treffer werden übernommen. Siehe Hinweis zur GUI-Variante
+weiter oben – das ist ein Bestmöglicher-Versuch, keine Garantie.
 
 ## Tests
 

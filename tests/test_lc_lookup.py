@@ -148,6 +148,122 @@ def test_fehlende_lc_nummern_nachschlagen_batch(tmp_path, monkeypatch):
     assert len(fortschritt) == 2  # zwei verschiedene (Interpret, Album)-Paare geprueft
 
 
+def test_lc_nummer_fuer_song_nachschlagen_gefunden(tmp_path, monkeypatch):
+    db_path = tmp_path / "test.db"
+    with db.connect(db_path) as conn:
+        conn.execute(
+            "INSERT INTO songs (title, artist, album, filepath) VALUES (?,?,?,?)",
+            ("24K Magic", "Bruno Mars", "24K Magic", str(tmp_path / "1.mp3")),
+        )
+        conn.execute(
+            "INSERT INTO songs (title, artist, album, filepath) VALUES (?,?,?,?)",
+            ("That's What I Like", "Bruno Mars", "24K Magic", str(tmp_path / "2.mp3")),
+        )
+        song_id = conn.execute(
+            "SELECT id FROM songs WHERE title='24K Magic'"
+        ).fetchone()["id"]
+        anderer_song_id = conn.execute(
+            "SELECT id FROM songs WHERE title=\"That's What I Like\""
+        ).fetchone()["id"]
+
+    antworten = [
+        {"releases": [{"id": "abc", "score": "100"}]},
+        {"label-info": [{"label": {"label-code": 6861}}]},
+    ]
+    monkeypatch.setattr(
+        lc_lookup.urllib.request, "urlopen", lambda *a, **k: _FakeResponse(antworten.pop(0))
+    )
+
+    with db.connect(db_path) as conn:
+        status, wert = lc_lookup.lc_nummer_fuer_song_nachschlagen(conn, song_id)
+        assert (status, wert) == ("gefunden", "LC-06861")
+
+        # Nur der eine Titel wurde aktualisiert, der andere (gleiches Album) nicht.
+        eigener = conn.execute(
+            "SELECT lc_nummer FROM songs WHERE id = ?", (song_id,)
+        ).fetchone()
+        anderer = conn.execute(
+            "SELECT lc_nummer FROM songs WHERE id = ?", (anderer_song_id,)
+        ).fetchone()
+    assert eigener["lc_nummer"] == "LC-06861"
+    assert anderer["lc_nummer"] in (None, "")
+
+
+def test_lc_nummer_fuer_song_nachschlagen_bereits_vorhanden(tmp_path, monkeypatch):
+    db_path = tmp_path / "test.db"
+    with db.connect(db_path) as conn:
+        conn.execute(
+            "INSERT INTO songs (title, artist, album, lc_nummer, filepath) VALUES (?,?,?,?,?)",
+            ("Titel", "Band", "Album", "LC-99999", str(tmp_path / "1.mp3")),
+        )
+        song_id = conn.execute("SELECT id FROM songs").fetchone()["id"]
+
+    def darf_nicht_aufgerufen_werden(*a, **k):
+        raise AssertionError("Es haette keine Anfrage gestellt werden duerfen")
+
+    monkeypatch.setattr(lc_lookup.urllib.request, "urlopen", darf_nicht_aufgerufen_werden)
+
+    with db.connect(db_path) as conn:
+        status, wert = lc_lookup.lc_nummer_fuer_song_nachschlagen(conn, song_id)
+    assert (status, wert) == ("bereits_vorhanden", "LC-99999")
+
+
+def test_lc_nummer_fuer_song_nachschlagen_ohne_angaben(tmp_path, monkeypatch):
+    db_path = tmp_path / "test.db"
+    with db.connect(db_path) as conn:
+        conn.execute(
+            "INSERT INTO songs (title, artist, album, filepath) VALUES (?,?,?,?)",
+            ("Titel", None, None, str(tmp_path / "1.mp3")),
+        )
+        song_id = conn.execute("SELECT id FROM songs").fetchone()["id"]
+
+    def darf_nicht_aufgerufen_werden(*a, **k):
+        raise AssertionError("Es haette keine Anfrage gestellt werden duerfen")
+
+    monkeypatch.setattr(lc_lookup.urllib.request, "urlopen", darf_nicht_aufgerufen_werden)
+
+    with db.connect(db_path) as conn:
+        status, wert = lc_lookup.lc_nummer_fuer_song_nachschlagen(conn, song_id)
+    assert (status, wert) == ("keine_angaben", None)
+
+
+def test_lc_nummer_fuer_song_nachschlagen_nicht_gefunden(tmp_path, monkeypatch):
+    db_path = tmp_path / "test.db"
+    with db.connect(db_path) as conn:
+        conn.execute(
+            "INSERT INTO songs (title, artist, album, filepath) VALUES (?,?,?,?)",
+            ("Titel", "Unbekannt", "Nirgendwo", str(tmp_path / "1.mp3")),
+        )
+        song_id = conn.execute("SELECT id FROM songs").fetchone()["id"]
+
+    monkeypatch.setattr(
+        lc_lookup.urllib.request, "urlopen", lambda *a, **k: _FakeResponse({"releases": []})
+    )
+
+    with db.connect(db_path) as conn:
+        status, wert = lc_lookup.lc_nummer_fuer_song_nachschlagen(conn, song_id)
+    assert (status, wert) == ("nicht_gefunden", None)
+
+
+def test_lc_nummer_fuer_song_nachschlagen_netzwerkfehler(tmp_path, monkeypatch):
+    db_path = tmp_path / "test.db"
+    with db.connect(db_path) as conn:
+        conn.execute(
+            "INSERT INTO songs (title, artist, album, filepath) VALUES (?,?,?,?)",
+            ("Titel", "Band", "Album", str(tmp_path / "1.mp3")),
+        )
+        song_id = conn.execute("SELECT id FROM songs").fetchone()["id"]
+
+    def fake_urlopen(*a, **k):
+        raise urllib.error.URLError("Keine Verbindung")
+
+    monkeypatch.setattr(lc_lookup.urllib.request, "urlopen", fake_urlopen)
+
+    with db.connect(db_path) as conn:
+        with pytest.raises(lc_lookup.LookupFehler):
+            lc_lookup.lc_nummer_fuer_song_nachschlagen(conn, song_id)
+
+
 def test_drosselung_wartet_mindestens_eine_sekunde(monkeypatch):
     wartezeiten = []
     monkeypatch.setattr(lc_lookup.time, "sleep", lambda s: wartezeiten.append(s))
