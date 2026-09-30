@@ -68,13 +68,27 @@ Es öffnet sich **ein** Fenster mit:
   dieses Album (z.B. um dort auch nach Jahr/LC-Nummer zu sortieren);
   "Filter aufheben" zeigt wieder alle Titel.
 - **Mehrfachauswahl**: mehrere Titel mit Strg-Klick (macOS: Cmd-Klick)
-  oder Umschalt-Klick auswählen, z.B. um sie gemeinsam zu löschen
+  oder Umschalt-Klick auswählen, z.B. um sie gemeinsam zu löschen oder
+  gemeinsam eine Stimmung/Musikrichtung zu setzen (siehe unten)
 - **Titel löschen**: markierte Titel per Button "Ausgewählte löschen"
   (oder Entf-Taste) aus dem Archiv entfernen – nach Bestätigung wird nur
   der Datenbank-Eintrag gelöscht, die Musikdatei auf der Festplatte
   bleibt unangetastet
 - einem Detailbereich rechts: beim Anklicken eines Titels werden dort die
-  Stimmungen angezeigt, hinzugefügt oder entfernt – direkt im selben Fenster
+  Stimmungen angezeigt, hinzugefügt oder entfernt – direkt im selben
+  Fenster. Das funktioniert auch bei **mehreren gleichzeitig ausgewählten
+  Titeln**: die neue Stimmung wird dann bei allen markierten Titeln
+  eingetragen; zum Entfernen bei Mehrfachauswahl den Namen der Stimmung
+  in das Eingabefeld tippen und auf "Stimmung entfernen" klicken (bei nur
+  einem ausgewählten Titel reicht wie bisher ein Klick auf die Stimmung
+  in der Liste, dann auf "Stimmung entfernen").
+- **Musikrichtung selbst eintragen/ändern**: im Detailbereich neben der
+  Musikrichtung ein Textfeld mit Knopf "Musikrichtung setzen" – trägt den
+  eingegebenen Text für den ausgewählten Titel ein (überschreibt das aus
+  dem Genre-Tag gelesene Genre). Funktioniert genauso bei **mehreren
+  gleichzeitig ausgewählten Titeln**: alle markierten Titel bekommen
+  dieselbe Musikrichtung. Leeres Feld + Knopf entfernt die Musikrichtung
+  wieder.
 - einem Bereich "Auf Festplatte sortieren" (Stimmung/Interpret, Kopieren/
   Verschieben/Verknüpfen), der über einen Ordner-Auswahldialog sortiert
 - **▶ Abspielen / ⏹ Stopp** zum Reinhören in den ausgewählten Titel
@@ -96,7 +110,7 @@ Es öffnet sich **ein** Fenster mit:
   Audio-Analyse – eine KI, die den Song wirklich "anhört" und die Stimmung
   erkennt, wäre ein eigenes, deutlich aufwendigeres Projekt (trainiertes
   Machine-Learning-Modell). Vorschläge lassen sich jederzeit über
-  "Ausgewählte Stimmung entfernen" korrigieren.
+  "Stimmung entfernen" korrigieren.
 - **"Werkzeuge ▾" → "Album-Stimmungen korrigieren"**: behebt nachträglich Titel, bei denen
   eine Stimmung (z.B. "Spannung" oder "leichte Spannung") versehentlich im
   Album-Feld statt bei den Stimmungen gelandet ist – erkennt das an kurzen
@@ -110,7 +124,8 @@ Es öffnet sich **ein** Fenster mit:
   automatisch aus dem Genre-Tag der Datei gelesen und in eigener Spalte
   sowie im Detailbereich angezeigt (sofern die Datei ein Genre-Tag
   enthält). Dasselbe Tag wird auch für die automatischen
-  Stimmungs-Vorschläge genutzt.
+  Stimmungs-Vorschläge genutzt. Lässt sich jederzeit manuell nachtragen
+  oder korrigieren (siehe "Musikrichtung selbst eintragen/ändern" oben).
 - **LC-Nummer** (Labelcode): wird beim Import automatisch erkannt und in
   Liste sowie Detailbereich angezeigt. Gelesen wird das Verlag/Publisher-
   Feld der Datei (und als Rückfallebene das Copyright-Feld) nach einem
@@ -211,6 +226,13 @@ python -m musikarchiv mood-list
 
 Bei mehrdeutigem Titel-Suchtext listet der Befehl die Treffer mit ID auf;
 dann kann die ID statt des Titels übergeben werden.
+
+Musikrichtung setzen (funktioniert für einen oder mehrere Titel auf einmal):
+
+```bash
+python -m musikarchiv genre-set Pop "Sonnenschein" "Regentraenen"
+python -m musikarchiv genre-set "" "Sonnenschein"   # entfernt die Musikrichtung wieder
+```
 
 ### 3. Suchen
 

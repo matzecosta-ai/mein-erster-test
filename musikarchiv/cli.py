@@ -192,6 +192,31 @@ def cmd_mood_remove(args):
         print(f"Stimmung '{args.stimmung}' von '{song['title']}' entfernt.")
 
 
+def cmd_genre_set(args):
+    with db.connect(args.db) as conn:
+        aktualisiert = []
+        for identifier in args.songs:
+            matches = _find_song(conn, identifier)
+            if not matches:
+                print(f"Kein Titel gefunden für '{identifier}'.")
+                continue
+            if len(matches) > 1:
+                print(f"'{identifier}' ist mehrdeutig, bitte die ID verwenden:")
+                for m in matches:
+                    print(f"  [{m['id']}] {m['title']} - {m['artist'] or '?'}")
+                continue
+            song = matches[0]
+            conn.execute(
+                "UPDATE songs SET genre = ? WHERE id = ?", (args.genre or None, song["id"])
+            )
+            aktualisiert.append(song["title"])
+        if aktualisiert:
+            anzeige = args.genre or "(leer)"
+            print(f"Musikrichtung '{anzeige}' gesetzt für: {', '.join(aktualisiert)}")
+        else:
+            print("Keine Musikrichtung gesetzt.")
+
+
 def cmd_delete(args):
     with db.connect(args.db) as conn:
         geloescht = []
@@ -359,6 +384,14 @@ def build_parser():
     p.add_argument("song", help="Titel-ID oder Teil des Titelnamens")
     p.add_argument("stimmung")
     p.set_defaults(func=cmd_mood_remove)
+
+    p = sub.add_parser(
+        "genre-set",
+        help="Musikrichtung fuer einen oder mehrere Titel setzen (leerer String entfernt sie)",
+    )
+    p.add_argument("genre", help="z.B. Pop, Rock, Klassik, Indie ... (frei wählbar)")
+    p.add_argument("songs", nargs="+", help="Titel-ID(s) oder Teil des Titelnamens")
+    p.set_defaults(func=cmd_genre_set)
 
     p = sub.add_parser("mood-list", help="Alle vergebenen Stimmungen anzeigen")
     p.set_defaults(func=cmd_mood_list)

@@ -161,6 +161,113 @@ def test_stimmung_hinzufuegen_und_entfernen_behaelt_auswahl(tmp_path):
         app.destroy()
 
 
+def test_stimmung_hinzufuegen_und_entfernen_fuer_mehrere_titel(tmp_path):
+    db_path = tmp_path / "test.db"
+    _seed_songs(db_path, tmp_path)
+
+    app = _app_or_skip(db_path)
+    app.update()
+    try:
+        alle_ids = app.tree.get_children()
+        assert len(alle_ids) == 2
+        app.tree.selection_set(alle_ids)
+        app.update()
+        assert len(app.selected_song_ids) == 2
+
+        app.new_mood_var.set("Party")
+        app.add_mood()
+        app.update()
+
+        with db.connect(db_path) as conn:
+            for sid in alle_ids:
+                assert organizer._mood_names(conn, int(sid)) == ["Party"]
+
+        # Beide Titel bleiben nach dem Neuladen weiterhin ausgewaehlt.
+        assert len(app.selected_song_ids) == 2
+
+        app.new_mood_var.set("Party")
+        app.remove_mood()
+        app.update()
+
+        with db.connect(db_path) as conn:
+            count = conn.execute("SELECT COUNT(*) as c FROM song_moods").fetchone()["c"]
+        assert count == 0
+    finally:
+        app.destroy()
+
+
+def test_stimmung_entfernen_bei_mehrfachauswahl_ohne_eingabe_warnt(tmp_path, monkeypatch):
+    db_path = tmp_path / "test.db"
+    _seed_songs(db_path, tmp_path)
+
+    warnungen = []
+    monkeypatch.setattr(
+        gui.messagebox, "showwarning", lambda titel, text: warnungen.append(text)
+    )
+
+    app = _app_or_skip(db_path)
+    app.update()
+    try:
+        alle_ids = app.tree.get_children()
+        app.tree.selection_set(alle_ids)
+        app.update()
+
+        app.new_mood_var.set("")
+        app.remove_mood()
+        assert warnungen
+    finally:
+        app.destroy()
+
+
+def test_musikrichtung_setzen_fuer_einen_titel(tmp_path):
+    db_path = tmp_path / "test.db"
+    _seed_songs(db_path, tmp_path)
+
+    app = _app_or_skip(db_path)
+    app.update()
+    try:
+        first_id = app.tree.get_children()[0]
+        app.tree.selection_set(first_id)
+        app.update()
+
+        app.genre_edit_var.set("Pop")
+        app.set_genre_fuer_auswahl()
+        app.update()
+
+        assert "Pop" in app.detail_genre_var.get()
+        with db.connect(db_path) as conn:
+            genre = conn.execute(
+                "SELECT genre FROM songs WHERE id = ?", (int(first_id),)
+            ).fetchone()["genre"]
+        assert genre == "Pop"
+    finally:
+        app.destroy()
+
+
+def test_musikrichtung_setzen_fuer_mehrere_titel(tmp_path):
+    db_path = tmp_path / "test.db"
+    _seed_songs(db_path, tmp_path)
+
+    app = _app_or_skip(db_path)
+    app.update()
+    try:
+        alle_ids = app.tree.get_children()
+        app.tree.selection_set(alle_ids)
+        app.update()
+
+        app.genre_edit_var.set("Rock")
+        app.set_genre_fuer_auswahl()
+        app.update()
+
+        with db.connect(db_path) as conn:
+            genres = [
+                r["genre"] for r in conn.execute("SELECT genre FROM songs")
+            ]
+        assert genres == ["Rock", "Rock"]
+    finally:
+        app.destroy()
+
+
 def test_suggest_mood_nutzt_genre(tmp_path, monkeypatch):
     db_path = tmp_path / "test.db"
     with db.connect(db_path) as conn:

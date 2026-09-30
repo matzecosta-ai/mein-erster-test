@@ -328,7 +328,17 @@ class MusikArchivApp(tk.Tk):
         ttk.Label(detail_frame, textvariable=self.detail_artist_var).pack(anchor="w")
         ttk.Label(detail_frame, textvariable=self.detail_album_var).pack(anchor="w")
         ttk.Label(detail_frame, textvariable=self.detail_year_var).pack(anchor="w")
-        ttk.Label(detail_frame, textvariable=self.detail_genre_var).pack(anchor="w")
+
+        genre_row = ttk.Frame(detail_frame)
+        genre_row.pack(fill="x", anchor="w")
+        ttk.Label(genre_row, textvariable=self.detail_genre_var).pack(side="left")
+        self.genre_edit_var = tk.StringVar(value="")
+        genre_entry = ttk.Entry(genre_row, textvariable=self.genre_edit_var, width=16)
+        genre_entry.pack(side="left", padx=(8, 4))
+        genre_entry.bind("<Return>", lambda *_: self.set_genre_fuer_auswahl())
+        ttk.Button(
+            genre_row, text="Musikrichtung setzen", command=self.set_genre_fuer_auswahl
+        ).pack(side="left")
 
         lc_row = ttk.Frame(detail_frame)
         lc_row.pack(fill="x", anchor="w")
@@ -392,7 +402,7 @@ class MusikArchivApp(tk.Tk):
             side="left", padx=(4, 0)
         )
         ttk.Button(
-            detail_frame, text="Ausgewählte Stimmung entfernen", command=self.remove_mood
+            detail_frame, text="Stimmung entfernen", command=self.remove_mood
         ).pack(anchor="w", pady=(6, 0))
         ttk.Button(
             detail_frame, text="Stimmung anhand Genre vorschlagen", command=self.suggest_mood
@@ -575,10 +585,15 @@ class MusikArchivApp(tk.Tk):
             self.filter_leiste.pack_forget()
 
         self.status_var.set(f"{len(rows)} Titel angezeigt")
-        if self.selected_song_id is not None and str(self.selected_song_id) in self.tree.get_children():
+        vorhandene_ids = self.tree.get_children()
+        wiederherzustellen = [
+            str(sid) for sid in self.selected_song_ids if str(sid) in vorhandene_ids
+        ]
+        if wiederherzustellen:
             # Neuaufbau der Liste loescht die Treeview-Auswahl technisch;
-            # hier wird sie wiederhergestellt, damit das Detailpanel bestehen bleibt.
-            self.tree.selection_set(str(self.selected_song_id))
+            # hier wird sie wiederhergestellt (auch bei Mehrfachauswahl),
+            # damit das Detailpanel bzw. die Auswahl bestehen bleibt.
+            self.tree.selection_set(wiederherzustellen)
         else:
             self._clear_detail()
 
@@ -764,6 +779,7 @@ class MusikArchivApp(tk.Tk):
             self.detail_album_var.set("")
             self.detail_year_var.set("")
             self.detail_genre_var.set("")
+            self.genre_edit_var.set("")
             self.detail_lc_var.set("")
             self.detail_path_var.set("")
             self.detail_genre = None
@@ -790,6 +806,7 @@ class MusikArchivApp(tk.Tk):
         self.detail_album_var.set(song["album"] or "")
         self.detail_year_var.set(f"Jahr: {song['year']}" if song["year"] else "")
         self.detail_genre_var.set(f"Musikrichtung: {song['genre']}" if song["genre"] else "")
+        self.genre_edit_var.set(song["genre"] or "")
         self.detail_lc_var.set(f"LC-Nummer: {song['lc_nummer']}" if song["lc_nummer"] else "")
         self.detail_path_var.set(song["filepath"])
         self.detail_genre = song["genre"]
@@ -806,6 +823,7 @@ class MusikArchivApp(tk.Tk):
         self.detail_album_var.set("")
         self.detail_year_var.set("")
         self.detail_genre_var.set("")
+        self.genre_edit_var.set("")
         self.detail_lc_var.set("")
         self.detail_path_var.set("")
         self.detail_genre = None
@@ -1451,8 +1469,12 @@ class MusikArchivApp(tk.Tk):
         self._seek_loop_job = self.after(300, self._update_seek_loop)
 
     def add_mood(self):
-        if self.selected_song_id is None:
-            messagebox.showwarning("Kein Titel ausgewählt", "Bitte zuerst einen Titel in der Liste wählen.")
+        song_ids = list(self.selected_song_ids)
+        if not song_ids:
+            messagebox.showwarning(
+                "Kein Titel ausgewählt",
+                "Bitte zuerst einen oder mehrere Titel in der Liste auswählen.",
+            )
             return
         mood_name = self.new_mood_var.get().strip()
         if not mood_name:
@@ -1460,34 +1482,73 @@ class MusikArchivApp(tk.Tk):
         with db.connect(self.db_path) as conn:
             conn.execute("INSERT OR IGNORE INTO moods (name) VALUES (?)", (mood_name,))
             mood = conn.execute("SELECT id FROM moods WHERE name = ?", (mood_name,)).fetchone()
-            conn.execute(
+            conn.executemany(
                 "INSERT OR IGNORE INTO song_moods (song_id, mood_id) VALUES (?, ?)",
-                (self.selected_song_id, mood["id"]),
+                [(sid, mood["id"]) for sid in song_ids],
             )
         self.new_mood_var.set("")
         self.refresh_moods()
         self.refresh_songs()
         self.on_select_song()
+        if len(song_ids) > 1:
+            self.status_var.set(f"Stimmung '{mood_name}' zu {len(song_ids)} Titeln hinzugefügt")
 
     def remove_mood(self):
-        if self.selected_song_id is None:
+        song_ids = list(self.selected_song_ids)
+        if not song_ids:
             return
-        selection = self.mood_listbox.curselection()
-        if not selection:
-            messagebox.showwarning(
-                "Keine Stimmung ausgewählt", "Bitte zuerst eine Stimmung in der Liste markieren."
-            )
-            return
-        mood_name = self.mood_listbox.get(selection[0])
+
+        if len(song_ids) == 1:
+            selection = self.mood_listbox.curselection()
+            if not selection:
+                messagebox.showwarning(
+                    "Keine Stimmung ausgewählt", "Bitte zuerst eine Stimmung in der Liste markieren."
+                )
+                return
+            mood_name = self.mood_listbox.get(selection[0])
+        else:
+            mood_name = self.new_mood_var.get().strip()
+            if not mood_name:
+                messagebox.showwarning(
+                    "Keine Stimmung angegeben",
+                    "Bei mehreren ausgewählten Titeln gibt es keine Listenauswahl - bitte "
+                    "den Namen der zu entfernenden Stimmung oben eingeben.",
+                )
+                return
+
         with db.connect(self.db_path) as conn:
-            conn.execute(
+            conn.executemany(
                 """DELETE FROM song_moods WHERE song_id = ? AND mood_id = (
                        SELECT id FROM moods WHERE name = ?
                    )""",
-                (self.selected_song_id, mood_name),
+                [(sid, mood_name) for sid in song_ids],
             )
         self.refresh_songs()
         self.on_select_song()
+        if len(song_ids) > 1:
+            self.status_var.set(f"Stimmung '{mood_name}' von {len(song_ids)} Titeln entfernt")
+
+    def set_genre_fuer_auswahl(self):
+        song_ids = list(self.selected_song_ids)
+        if not song_ids:
+            messagebox.showwarning(
+                "Kein Titel ausgewählt",
+                "Bitte zuerst einen oder mehrere Titel in der Liste auswählen.",
+            )
+            return
+        genre = self.genre_edit_var.get().strip()
+        with db.connect(self.db_path) as conn:
+            conn.executemany(
+                "UPDATE songs SET genre = ? WHERE id = ?",
+                [(genre or None, sid) for sid in song_ids],
+            )
+        self.refresh_songs()
+        self.on_select_song()
+        anzeige = genre or "(leer)"
+        if len(song_ids) > 1:
+            self.status_var.set(f"Musikrichtung '{anzeige}' für {len(song_ids)} Titel gesetzt")
+        else:
+            self.status_var.set(f"Musikrichtung gesetzt: {anzeige}")
 
     def organize_now(self):
         ziel = filedialog.askdirectory(title="Zielordner für die Sortierung wählen")

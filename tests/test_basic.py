@@ -140,6 +140,35 @@ def test_list_zeigt_musikrichtung(tmp_path, capsys):
     assert "<" not in zeile_regentraenen
 
 
+def test_genre_set_fuer_mehrere_titel(tmp_path, capsys):
+    musik_ordner = tmp_path / "musik"
+    musik_ordner.mkdir()
+    _make_song(musik_ordner, "Sonnenschein.wav")
+    _make_song(musik_ordner, "Regentraenen.wav")
+
+    db_path = tmp_path / "test.db"
+    main(["--db", str(db_path), "import", str(musik_ordner)])
+    capsys.readouterr()
+
+    main(["--db", str(db_path), "genre-set", "Pop", "Sonnenschein", "Regentraenen"])
+    out = capsys.readouterr().out
+    assert "Musikrichtung 'Pop' gesetzt für: Sonnenschein, Regentraenen" in out
+
+    with db.connect(db_path) as conn:
+        genres = {r["title"]: r["genre"] for r in conn.execute("SELECT title, genre FROM songs")}
+    assert genres["Sonnenschein"] == "Pop"
+    assert genres["Regentraenen"] == "Pop"
+
+    # Leerer String entfernt die Musikrichtung wieder
+    main(["--db", str(db_path), "genre-set", "", "Sonnenschein"])
+    capsys.readouterr()
+    with db.connect(db_path) as conn:
+        genre = conn.execute(
+            "SELECT genre FROM songs WHERE title='Sonnenschein'"
+        ).fetchone()["genre"]
+    assert genre in (None, "")
+
+
 def test_lookup_lc_titel_durchsucht_nur_den_einen_titel(tmp_path, capsys, monkeypatch):
     db_path = tmp_path / "test.db"
     with db.connect(db_path) as conn:
