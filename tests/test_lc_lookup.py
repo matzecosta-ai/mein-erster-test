@@ -264,6 +264,83 @@ def test_lc_nummer_fuer_song_nachschlagen_netzwerkfehler(tmp_path, monkeypatch):
             lc_lookup.lc_nummer_fuer_song_nachschlagen(conn, song_id)
 
 
+def test_lc_nummern_fuer_songs_nachschlagen_nur_auswahl(tmp_path, monkeypatch):
+    db_path = tmp_path / "test.db"
+    with db.connect(db_path) as conn:
+        conn.execute(
+            "INSERT INTO songs (title, artist, album, filepath) VALUES (?,?,?,?)",
+            ("Titel 1", "Bruno Mars", "24K Magic", str(tmp_path / "1.mp3")),
+        )
+        conn.execute(
+            "INSERT INTO songs (title, artist, album, filepath) VALUES (?,?,?,?)",
+            ("Titel 2", "Bruno Mars", "24K Magic", str(tmp_path / "2.mp3")),
+        )
+        # Dritter Titel desselben Albums - NICHT ausgewaehlt, darf nicht angefasst werden.
+        conn.execute(
+            "INSERT INTO songs (title, artist, album, filepath) VALUES (?,?,?,?)",
+            ("Titel 3", "Bruno Mars", "24K Magic", str(tmp_path / "3.mp3")),
+        )
+        conn.execute(
+            "INSERT INTO songs (title, artist, album, filepath) VALUES (?,?,?,?)",
+            ("Titel 4", "Unbekannte Band", "Nirgendwo Gefunden", str(tmp_path / "4.mp3")),
+        )
+        conn.execute(
+            "INSERT INTO songs (title, artist, album, lc_nummer, filepath) VALUES (?,?,?,?,?)",
+            ("Titel 5", "Schon Markiert", "Album", "LC-99999", str(tmp_path / "5.mp3")),
+        )
+        conn.execute(
+            "INSERT INTO songs (title, artist, album, filepath) VALUES (?,?,?,?)",
+            ("Titel 6", None, None, str(tmp_path / "6.mp3")),
+        )
+        ids = {
+            row["title"]: row["id"]
+            for row in conn.execute("SELECT id, title FROM songs")
+        }
+
+    ausgewaehlt = [ids["Titel 1"], ids["Titel 2"], ids["Titel 4"], ids["Titel 5"], ids["Titel 6"]]
+
+    antworten_pro_album = {
+        "24K Magic": [
+            {"releases": [{"id": "abc", "score": "100"}]},
+            {"label-info": [{"label": {"label-code": 6861}}]},
+        ],
+        "Nirgendwo Gefunden": [{"releases": []}],
+    }
+
+    def fake_urlopen(request, timeout=10):
+        url = request.full_url
+        for album, antworten in antworten_pro_album.items():
+            if lc_lookup.urllib.parse.quote(album) in url or "release/abc" in url:
+                return _FakeResponse(antworten.pop(0))
+        raise AssertionError(f"Unerwartete URL: {url}")
+
+    monkeypatch.setattr(lc_lookup.urllib.request, "urlopen", fake_urlopen)
+
+    fortschritt = []
+    with db.connect(db_path) as conn:
+        ergebnis = lc_lookup.lc_nummern_fuer_songs_nachschlagen(
+            conn, ausgewaehlt, on_progress=lambda i, g, txt: fortschritt.append((i, g, txt))
+        )
+
+        assert len(ergebnis["gefunden"]) == 1
+        anzahl, artist, album, lc = ergebnis["gefunden"][0]
+        assert (anzahl, artist, album, lc) == (2, "Bruno Mars", "24K Magic", "LC-06861")
+        assert ergebnis["nicht_gefunden"] == [("Unbekannte Band", "Nirgendwo Gefunden")]
+        assert ergebnis["fehler"] == []
+        assert ergebnis["bereits_vorhanden"] == 1
+        assert ergebnis["keine_angaben"] == 1
+
+        rows = {
+            row["title"]: row["lc_nummer"]
+            for row in conn.execute("SELECT title, lc_nummer FROM songs")
+        }
+    assert rows["Titel 1"] == "LC-06861"
+    assert rows["Titel 2"] == "LC-06861"
+    assert rows["Titel 3"] in (None, "")  # nicht ausgewaehlt, unangetastet trotz gleichem Album
+    assert rows["Titel 5"] == "LC-99999"  # unveraendert
+    assert len(fortschritt) == 2
+
+
 def test_drosselung_wartet_mindestens_eine_sekunde(monkeypatch):
     wartezeiten = []
     monkeypatch.setattr(lc_lookup.time, "sleep", lambda s: wartezeiten.append(s))

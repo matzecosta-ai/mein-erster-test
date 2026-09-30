@@ -38,17 +38,20 @@ einzeln und startet auch, wenn eine davon nicht klappt.)
 Es öffnet sich **ein** Fenster mit:
 
 - einer Liste aller importierten Titel (Titel, Interpret, Jahr, Album,
-  LC-Nummer, Dauer, Stimmungen) – erscheint automatisch, sobald ein
-  Ordner importiert wurde
+  Musikrichtung, LC-Nummer, Dauer, Stimmungen) – erscheint automatisch,
+  sobald ein Ordner importiert wurde. Sowohl senkrecht (bei vielen Titeln)
+  als auch waagerecht (bei schmalerem Fenster, damit auch die hinteren
+  Spalten wie Dauer/Stimmungen erreichbar bleiben) gibt es eine
+  Scrollleiste.
 - **Import läuft im Hintergrund** mit Fortschrittsbalken (Datei X von Y):
   friert bei sehr großen Sammlungen (mehrere zehntausend Dateien, egal wie
   viel GB) nicht ein, sondern zeigt live an, wie weit der Import ist
 - einem Suchfeld oben, das die Liste beim Tippen sofort nach Titel filtert
 - einem Stimmungs-Filter (Dropdown) daneben
-- **Sortierbare Spalten**: Klick auf "Titel", "Interpret", "Album" oder
-  "Stimmungen" in der Kopfzeile sortiert die Liste danach; nochmaliger
-  Klick auf dieselbe Spalte dreht die Reihenfolge um (▲/▼-Pfeil zeigt an,
-  wonach gerade sortiert ist)
+- **Sortierbare Spalten**: Klick auf "Titel", "Interpret", "Album",
+  "Musikrichtung" oder "Stimmungen" in der Kopfzeile sortiert die Liste
+  danach; nochmaliger Klick auf dieselbe Spalte dreht die Reihenfolge um
+  (▲/▼-Pfeil zeigt an, wonach gerade sortiert ist)
 - **Ansicht umschalten: Titel / Alben** (Umschalter oben in der
   Werkzeugleiste): Die Album-Ansicht fasst alle Titel **desselben Albums**
   zu einer aufklappbaren Zeile zusammen (mit Interpret, Jahr, Anzahl
@@ -103,6 +106,11 @@ Es öffnet sich **ein** Fenster mit:
 - **Erscheinungsjahr**: wird beim Import automatisch aus den Metadaten
   gelesen und in der Liste sowie im Detailbereich angezeigt (sofern die
   Datei ein Datums-Tag enthält).
+- **Musikrichtung** (z.B. Pop, Rock, Klassik, Indie): wird beim Import
+  automatisch aus dem Genre-Tag der Datei gelesen und in eigener Spalte
+  sowie im Detailbereich angezeigt (sofern die Datei ein Genre-Tag
+  enthält). Dasselbe Tag wird auch für die automatischen
+  Stimmungs-Vorschläge genutzt.
 - **LC-Nummer** (Labelcode): wird beim Import automatisch erkannt und in
   Liste sowie Detailbereich angezeigt. Gelesen wird das Verlag/Publisher-
   Feld der Datei (und als Rückfallebene das Copyright-Feld) nach einem
@@ -128,20 +136,27 @@ Es öffnet sich **ein** Fenster mit:
   Stimmung "Instrumental" vergeben – Titel/Album bleiben unverändert.
   Für bereits importierte Titel: "Werkzeuge ▾" → "Instrumental-Titel
   markieren".
-- **LC-Nummern online nachschlagen** (experimentell), in zwei Varianten:
-  Beide suchen bei der freien Musikdatenbank
+- **LC-Nummern online nachschlagen** (experimentell), in drei Varianten:
+  Alle suchen bei der freien Musikdatenbank
   [MusicBrainz](https://musicbrainz.org) nach dem passenden Labelcode. Das
   ist ein **Bestmöglicher-Versuch, keine Garantie**: MusicBrainz wird von
   Freiwilligen gepflegt, nicht jedes Album ist erfasst, und in
   Einzelfällen (mehrere Pressungen, Wiederveröffentlichungen auf anderen
   Labels) kann die Zuordnung danebenliegen – deshalb werden nur sehr
   sichere Treffer automatisch übernommen. **Bestehende LC-Nummern werden
-  nie überschrieben.** Braucht in beiden Fällen eine Internetverbindung.
-  - **Nur für einen einzelnen Titel**: Titel in der Liste auswählen, dann
-    im Detailbereich rechts neben der LC-Nummer auf "🔍 LC-Nummer online
+  nie überschrieben.** Braucht in allen Fällen eine Internetverbindung.
+  - **Für einen einzelnen Titel**: Titel in der Liste auswählen, dann im
+    Detailbereich rechts neben der LC-Nummer auf "🔍 LC-Nummer(n) online
     suchen" klicken. Es wird ausschließlich dieser eine Titel durchsucht
     (nicht das ganze restliche Album). Auch über die Kommandozeile:
     `python -m musikarchiv lookup-lc-titel "Titelname"`.
+  - **Für mehrere ausgewählte Titel**: mehrere Titel mit Strg-Klick
+    (macOS: Cmd-Klick) oder Umschalt-Klick markieren, dann denselben
+    Knopf "🔍 LC-Nummer(n) online suchen" klicken. Es werden nur die
+    markierten Titel durchsucht – Titel desselben Albums, die nicht mit
+    ausgewählt wurden, bleiben unangetastet. Teilen sich mehrere
+    ausgewählte Titel Interpret und Album, wird dafür nur eine Anfrage
+    gestellt.
   - **Für alle Titel im Archiv auf einmal**: "Werkzeuge ▾" → "LC-Nummern
     für alle Titel online nachschlagen …" sucht für alle Titel ohne
     LC-Nummer (mit Interpret **und** Album). Bei vielen verschiedenen

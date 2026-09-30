@@ -238,8 +238,9 @@ def _print_songs(conn, rows):
         mood_str = ", ".join(song_moods) or "-"
         jahr = f" ({song['year']})" if song["year"] else ""
         lc = f" [{song['lc_nummer']}]" if song["lc_nummer"] else ""
+        genre = f" <{song['genre']}>" if song["genre"] else ""
         print(
-            f"[{song['id']}] {song['title']}{jahr}{lc} - {song['artist'] or '?'} | "
+            f"[{song['id']}] {song['title']}{jahr}{lc}{genre} - {song['artist'] or '?'} | "
             f"Stimmungen: {mood_str}"
         )
         print(f"      Datei: {song['filepath']}")

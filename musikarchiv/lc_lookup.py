@@ -190,3 +190,70 @@ def fehlende_lc_nummern_nachschlagen(conn, on_progress=None):
         ergebnis["gefunden"].append((cursor.rowcount, artist, album, lc))
 
     return ergebnis
+
+
+def lc_nummern_fuer_songs_nachschlagen(conn, song_ids, on_progress=None):
+    """Sucht online nach LC-Nummern nur fuer die angegebenen Titel (per ID) -
+    z.B. eine gezielte Mehrfachauswahl in der Liste. Titel ausserhalb dieser
+    Auswahl (auch vom selben Album) werden nicht angefasst. Teilen sich
+    mehrere ausgewaehlte Titel Interpret+Album, wird dafuer nur eine Anfrage
+    gestellt. Ueberschreibt niemals eine bereits vorhandene LC-Nummer.
+
+    'on_progress', falls angegeben, wird vor jedem verschiedenen
+    (Interpret, Album)-Paar aufgerufen als on_progress(geprueft, gesamt,
+    "Interpret - Album").
+
+    Gibt ein Dict zurueck:
+        gefunden: [(anzahl_titel, interpret, album, lc_nummer), ...]
+        nicht_gefunden: [(interpret, album), ...]
+        fehler: [(interpret, album, fehlermeldung), ...]
+        bereits_vorhanden: Anzahl Titel, die schon eine LC-Nummer hatten
+        keine_angaben: Anzahl Titel ohne Interpret oder Album
+    """
+    ergebnis = {
+        "gefunden": [],
+        "nicht_gefunden": [],
+        "fehler": [],
+        "bereits_vorhanden": 0,
+        "keine_angaben": 0,
+    }
+    if not song_ids:
+        return ergebnis
+
+    platzhalter = ",".join("?" * len(song_ids))
+    rows = conn.execute(
+        f"SELECT id, artist, album, lc_nummer FROM songs WHERE id IN ({platzhalter})",
+        list(song_ids),
+    ).fetchall()
+
+    gruppen = {}
+    for row in rows:
+        if row["lc_nummer"]:
+            ergebnis["bereits_vorhanden"] += 1
+            continue
+        if not row["artist"] or not row["album"]:
+            ergebnis["keine_angaben"] += 1
+            continue
+        gruppen.setdefault((row["artist"], row["album"]), []).append(row["id"])
+
+    gesamt = len(gruppen)
+    for index, ((artist, album), ids) in enumerate(gruppen.items(), start=1):
+        if on_progress is not None:
+            on_progress(index, gesamt, f"{artist} - {album}")
+        try:
+            lc = lc_nummer_nachschlagen(artist, album)
+        except LookupFehler as exc:
+            ergebnis["fehler"].append((artist, album, str(exc)))
+            continue
+        if not lc:
+            ergebnis["nicht_gefunden"].append((artist, album))
+            continue
+        id_platzhalter = ",".join("?" * len(ids))
+        cursor = conn.execute(
+            f"""UPDATE songs SET lc_nummer = ? WHERE id IN ({id_platzhalter})
+                AND (lc_nummer IS NULL OR lc_nummer = '')""",
+            [lc] + ids,
+        )
+        ergebnis["gefunden"].append((cursor.rowcount, artist, album, lc))
+
+    return ergebnis

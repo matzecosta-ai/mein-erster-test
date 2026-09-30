@@ -121,6 +121,25 @@ def test_delete_entfernt_titel_aber_nicht_die_datei(tmp_path, capsys):
     assert "Keine Titel gefunden" in out
 
 
+def test_list_zeigt_musikrichtung(tmp_path, capsys):
+    db_path = tmp_path / "test.db"
+    with db.connect(db_path) as conn:
+        conn.execute(
+            "INSERT INTO songs (title, artist, album, genre, filepath) VALUES (?,?,?,?,?)",
+            ("Sonnenschein", "Band A", "Album X", "Pop", str(tmp_path / "1.mp3")),
+        )
+        conn.execute(
+            "INSERT INTO songs (title, artist, album, filepath) VALUES (?,?,?,?)",
+            ("Regentraenen", "Band B", "Album Y", str(tmp_path / "2.mp3")),
+        )
+
+    main(["--db", str(db_path), "list"])
+    out = capsys.readouterr().out
+    assert "<Pop>" in out
+    zeile_regentraenen = [z for z in out.splitlines() if "Regentraenen" in z][0]
+    assert "<" not in zeile_regentraenen
+
+
 def test_lookup_lc_titel_durchsucht_nur_den_einen_titel(tmp_path, capsys, monkeypatch):
     db_path = tmp_path / "test.db"
     with db.connect(db_path) as conn:

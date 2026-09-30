@@ -89,6 +89,37 @@ def test_suche_filtert_live(tmp_path):
         app.destroy()
 
 
+def test_genre_spalte_wird_angezeigt(tmp_path):
+    db_path = tmp_path / "test.db"
+    with db.connect(db_path) as conn:
+        conn.execute(
+            "INSERT INTO songs (title, artist, album, genre, filepath) VALUES (?,?,?,?,?)",
+            ("Sonnenschein", "Band A", "Album X", "Pop", str(tmp_path / "sonnenschein.mp3")),
+        )
+        conn.execute(
+            "INSERT INTO songs (title, artist, album, filepath) VALUES (?,?,?,?)",
+            ("Regentraenen", "Band B", "Album Y", str(tmp_path / "regentraenen.mp3")),
+        )
+
+    app = _app_or_skip(db_path)
+    app.update()
+    try:
+        werte = {
+            app.tree.item(i, "values")[0]: app.tree.item(i, "values")[4]
+            for i in app.tree.get_children()
+        }
+        assert werte["Sonnenschein"] == "Pop"
+        assert werte["Regentraenen"] == ""
+
+        app.tree.selection_set(
+            [i for i in app.tree.get_children() if app.tree.item(i, "values")[0] == "Sonnenschein"]
+        )
+        app.update()
+        assert "Pop" in app.detail_genre_var.get()
+    finally:
+        app.destroy()
+
+
 def test_stimmung_hinzufuegen_und_entfernen_behaelt_auswahl(tmp_path):
     db_path = tmp_path / "test.db"
     _seed_songs(db_path, tmp_path)

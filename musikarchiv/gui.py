@@ -22,12 +22,14 @@ SORTIERBARE_SPALTEN = {
     "titel": "s.title",
     "interpret": "s.artist",
     "album": "s.album",
+    "genre": "s.genre",
     "stimmungen": "moods",
 }
 SPALTEN_BESCHRIFTUNG = {
     "titel": "Titel",
     "interpret": "Interpret",
     "album": "Album",
+    "genre": "Musikrichtung",
     "stimmungen": "Stimmungen",
 }
 
@@ -216,7 +218,9 @@ class MusikArchivApp(tk.Tk):
         list_container = ttk.Frame(main)
 
         self.title_list_frame = ttk.Frame(list_container)
-        columns = ("titel", "interpret", "jahr", "album", "lc_nummer", "dauer", "stimmungen")
+        columns = (
+            "titel", "interpret", "jahr", "album", "genre", "lc_nummer", "dauer", "stimmungen"
+        )
         self.tree = ttk.Treeview(
             self.title_list_frame, columns=columns, show="headings", selectmode="extended"
         )
@@ -225,6 +229,7 @@ class MusikArchivApp(tk.Tk):
             "interpret": ("Interpret", 150),
             "jahr": ("Jahr", 60),
             "album": ("Album", 150),
+            "genre": ("Musikrichtung", 110),
             "lc_nummer": ("LC-Nummer", 90),
             "dauer": ("Dauer", 70),
             "stimmungen": ("Stimmungen", 220),
@@ -236,9 +241,13 @@ class MusikArchivApp(tk.Tk):
                 self.tree.heading(col, text=label)
             self.tree.column(col, width=width, anchor="w")
         vsb = ttk.Scrollbar(self.title_list_frame, orient="vertical", command=self.tree.yview)
-        self.tree.configure(yscrollcommand=vsb.set)
-        self.tree.pack(side="left", fill="both", expand=True)
-        vsb.pack(side="right", fill="y")
+        hsb = ttk.Scrollbar(self.title_list_frame, orient="horizontal", command=self.tree.xview)
+        self.tree.configure(yscrollcommand=vsb.set, xscrollcommand=hsb.set)
+        self.tree.grid(row=0, column=0, sticky="nsew")
+        vsb.grid(row=0, column=1, sticky="ns")
+        hsb.grid(row=1, column=0, sticky="ew")
+        self.title_list_frame.grid_rowconfigure(0, weight=1)
+        self.title_list_frame.grid_columnconfigure(0, weight=1)
         self.tree.bind("<<TreeviewSelect>>", self.on_select_song)
         self.tree.bind("<Double-1>", lambda _e: self.play_selected())
         self.tree.bind("<Delete>", lambda _e: self.delete_selected())
@@ -284,9 +293,15 @@ class MusikArchivApp(tk.Tk):
         album_vsb = ttk.Scrollbar(
             album_tree_frame, orient="vertical", command=self.album_tree.yview
         )
-        self.album_tree.configure(yscrollcommand=album_vsb.set)
-        self.album_tree.pack(side="left", fill="both", expand=True)
-        album_vsb.pack(side="right", fill="y")
+        album_hsb = ttk.Scrollbar(
+            album_tree_frame, orient="horizontal", command=self.album_tree.xview
+        )
+        self.album_tree.configure(yscrollcommand=album_vsb.set, xscrollcommand=album_hsb.set)
+        self.album_tree.grid(row=0, column=0, sticky="nsew")
+        album_vsb.grid(row=0, column=1, sticky="ns")
+        album_hsb.grid(row=1, column=0, sticky="ew")
+        album_tree_frame.grid_rowconfigure(0, weight=1)
+        album_tree_frame.grid_columnconfigure(0, weight=1)
         self.album_tree.bind("<<TreeviewSelect>>", self.on_select_album)
         self.album_tree.bind("<Double-1>", self._on_album_tree_double_click)
         # album_list_frame wird erst bei Umschalten auf "Alben" gepackt
@@ -304,6 +319,7 @@ class MusikArchivApp(tk.Tk):
         self.detail_artist_var = tk.StringVar(value="")
         self.detail_album_var = tk.StringVar(value="")
         self.detail_year_var = tk.StringVar(value="")
+        self.detail_genre_var = tk.StringVar(value="")
         self.detail_lc_var = tk.StringVar(value="")
         self.detail_path_var = tk.StringVar(value="")
         ttk.Label(detail_frame, textvariable=self.detail_title_var, font=("", 10, "bold")).pack(
@@ -312,13 +328,14 @@ class MusikArchivApp(tk.Tk):
         ttk.Label(detail_frame, textvariable=self.detail_artist_var).pack(anchor="w")
         ttk.Label(detail_frame, textvariable=self.detail_album_var).pack(anchor="w")
         ttk.Label(detail_frame, textvariable=self.detail_year_var).pack(anchor="w")
+        ttk.Label(detail_frame, textvariable=self.detail_genre_var).pack(anchor="w")
 
         lc_row = ttk.Frame(detail_frame)
         lc_row.pack(fill="x", anchor="w")
         ttk.Label(lc_row, textvariable=self.detail_lc_var).pack(side="left")
         ttk.Button(
             lc_row,
-            text="🔍 LC-Nummer online suchen",
+            text="🔍 LC-Nummer(n) online suchen",
             command=self.lc_nummer_fuer_titel_suchen,
         ).pack(side="left", padx=(8, 0))
 
@@ -539,6 +556,7 @@ class MusikArchivApp(tk.Tk):
                     row["artist"] or "",
                     row["year"] or "",
                     row["album"] or "",
+                    row["genre"] or "",
                     row["lc_nummer"] or "",
                     dauer,
                     row["moods"] or "",
@@ -745,6 +763,7 @@ class MusikArchivApp(tk.Tk):
             self.detail_artist_var.set("")
             self.detail_album_var.set("")
             self.detail_year_var.set("")
+            self.detail_genre_var.set("")
             self.detail_lc_var.set("")
             self.detail_path_var.set("")
             self.detail_genre = None
@@ -770,6 +789,7 @@ class MusikArchivApp(tk.Tk):
         self.detail_artist_var.set(song["artist"] or "Interpret unbekannt")
         self.detail_album_var.set(song["album"] or "")
         self.detail_year_var.set(f"Jahr: {song['year']}" if song["year"] else "")
+        self.detail_genre_var.set(f"Musikrichtung: {song['genre']}" if song["genre"] else "")
         self.detail_lc_var.set(f"LC-Nummer: {song['lc_nummer']}" if song["lc_nummer"] else "")
         self.detail_path_var.set(song["filepath"])
         self.detail_genre = song["genre"]
@@ -785,6 +805,7 @@ class MusikArchivApp(tk.Tk):
         self.detail_artist_var.set("")
         self.detail_album_var.set("")
         self.detail_year_var.set("")
+        self.detail_genre_var.set("")
         self.detail_lc_var.set("")
         self.detail_path_var.set("")
         self.detail_genre = None
@@ -1106,14 +1127,20 @@ class MusikArchivApp(tk.Tk):
         messagebox.showinfo("LC-Nummern-Suche abgeschlossen", "\n\n".join(teile))
 
     def lc_nummer_fuer_titel_suchen(self):
-        if self.selected_song_id is None:
+        song_ids = list(self.selected_song_ids)
+        if not song_ids:
             messagebox.showwarning(
                 "Kein Titel ausgewählt",
-                "Bitte zuerst genau einen einzelnen Titel in der Liste auswählen.",
+                "Bitte zuerst einen oder mehrere Titel in der Liste auswählen.",
             )
             return
 
-        song_id = self.selected_song_id
+        if len(song_ids) == 1:
+            self._lc_lookup_einzel_starten(song_ids[0])
+        else:
+            self._lc_lookup_auswahl_starten(song_ids)
+
+    def _lc_lookup_einzel_starten(self, song_id):
         titel = self.detail_title_var.get()
 
         fenster = tk.Toplevel(self)
@@ -1182,6 +1209,114 @@ class MusikArchivApp(tk.Tk):
             messagebox.showinfo(
                 "Nicht gefunden", "Für diesen Titel wurde online keine passende LC-Nummer gefunden."
             )
+
+    def _lc_lookup_auswahl_starten(self, song_ids):
+        fenster = tk.Toplevel(self)
+        fenster.title("LC-Nummern werden gesucht…")
+        fenster.resizable(False, False)
+        fenster.transient(self)
+        fenster.protocol("WM_DELETE_WINDOW", lambda: None)
+
+        ttk.Label(
+            fenster,
+            text=f"Suche LC-Nummern für {len(song_ids)} ausgewählte Titel…",
+            padding=(16, 16, 16, 4),
+        ).pack()
+        fortschritt_var = tk.DoubleVar(value=0)
+        ttk.Progressbar(
+            fenster, orient="horizontal", length=380, mode="determinate",
+            variable=fortschritt_var, maximum=100,
+        ).pack(padx=16, pady=(0, 6))
+        status_var = tk.StringVar(value="Suche betroffene Alben …")
+        ttk.Label(fenster, textvariable=status_var, padding=(16, 0, 16, 16)).pack()
+
+        fenster.update_idletasks()
+        x = self.winfo_rootx() + (self.winfo_width() - fenster.winfo_width()) // 2
+        y = self.winfo_rooty() + (self.winfo_height() - fenster.winfo_height()) // 2
+        fenster.geometry(f"+{max(x, 0)}+{max(y, 0)}")
+        fenster.grab_set()
+
+        out_queue = queue.Queue()
+        thread = threading.Thread(
+            target=self._lc_lookup_auswahl_worker, args=(song_ids, out_queue), daemon=True
+        )
+        thread.start()
+        self.after(80, self._lc_lookup_auswahl_poll, fenster, fortschritt_var, status_var, out_queue)
+
+    def _lc_lookup_auswahl_worker(self, song_ids, out_queue):
+        try:
+            with db.connect(self.db_path) as conn:
+                def fortschritt(index, gesamt, bezeichnung):
+                    out_queue.put(("progress", index, gesamt, bezeichnung))
+
+                ergebnis = lc_lookup.lc_nummern_fuer_songs_nachschlagen(
+                    conn, song_ids, on_progress=fortschritt
+                )
+            out_queue.put(("done", ergebnis))
+        except Exception as exc:
+            out_queue.put(("error", str(exc)))
+
+    def _lc_lookup_auswahl_poll(self, fenster, fortschritt_var, status_var, out_queue):
+        try:
+            while True:
+                nachricht = out_queue.get_nowait()
+                art = nachricht[0]
+                if art == "progress":
+                    _, index, gesamt, bezeichnung = nachricht
+                    prozent = (index / gesamt * 100) if gesamt else 100
+                    fortschritt_var.set(prozent)
+                    status_var.set(f"{index} von {gesamt}: {bezeichnung}")
+                elif art == "done":
+                    fenster.grab_release()
+                    fenster.destroy()
+                    self._lc_lookup_auswahl_abgeschlossen(nachricht[1])
+                    return
+                elif art == "error":
+                    fenster.grab_release()
+                    fenster.destroy()
+                    messagebox.showerror(
+                        "Suche fehlgeschlagen",
+                        f"Bei der Online-Suche ist ein Fehler aufgetreten:\n{nachricht[1]}",
+                    )
+                    return
+        except queue.Empty:
+            pass
+        self.after(80, self._lc_lookup_auswahl_poll, fenster, fortschritt_var, status_var, out_queue)
+
+    def _lc_lookup_auswahl_abgeschlossen(self, ergebnis):
+        self.refresh_songs()
+        self.on_select_song()
+
+        gefunden = ergebnis["gefunden"]
+        nicht_gefunden = ergebnis["nicht_gefunden"]
+        fehler = ergebnis["fehler"]
+        bereits_vorhanden = ergebnis["bereits_vorhanden"]
+        keine_angaben = ergebnis["keine_angaben"]
+
+        teile = []
+        if gefunden:
+            anzahl_titel = sum(anzahl for anzahl, _, _, _ in gefunden)
+            details = "\n".join(
+                f"- '{album}' von {artist}: {lc} ({anzahl} Titel)"
+                for anzahl, artist, album, lc in gefunden
+            )
+            teile.append(f"{anzahl_titel} Titel aktualisiert:\n{details}")
+        if nicht_gefunden:
+            details = "\n".join(f"- '{album}' von {artist}" for artist, album in nicht_gefunden)
+            teile.append(f"Kein sicherer Treffer für {len(nicht_gefunden)} Album(en):\n{details}")
+        if fehler:
+            details = "\n".join(f"- '{album}' von {artist}: {msg}" for artist, album, msg in fehler)
+            teile.append(f"Verbindungsfehler bei {len(fehler)} Album(en):\n{details}")
+        if bereits_vorhanden:
+            teile.append(f"{bereits_vorhanden} Titel hatten bereits eine LC-Nummer (unverändert).")
+        if keine_angaben:
+            teile.append(f"{keine_angaben} Titel ohne Interpret/Album (keine Suche möglich).")
+
+        if not teile:
+            messagebox.showinfo("Nichts zu tun", "Für die Auswahl gab es nichts zu suchen.")
+            return
+
+        messagebox.showinfo("LC-Nummern-Suche abgeschlossen", "\n\n".join(teile))
 
     def suggest_mood(self):
         if self.selected_song_id is None:
