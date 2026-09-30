@@ -109,6 +109,39 @@ def lc_nummer_nachschlagen(artist, album):
     return _label_code_von_release(release_id)
 
 
+def lc_nummer_fuer_titel_nachschlagen(conn, song_id):
+    """Sucht online die LC-Nummer fuer genau EINEN Titel (nicht das ganze
+    Archiv) und traegt sie nur bei diesem Titel ein. Eine bereits
+    vorhandene LC-Nummer wird nie ueberschrieben.
+
+    Gibt ein Tupel (status, lc_nummer) zurueck, status ist einer von:
+        "gesetzt"        - LC-Nummer gefunden und eingetragen
+        "schon_vorhanden" - Titel hatte schon eine LC-Nummer (lc_nummer = diese)
+        "nicht_gefunden" - kein sicherer Treffer bei MusicBrainz
+        "unvollstaendig" - Interpret oder Album fehlt, Suche nicht moeglich
+        "unbekannt"      - Titel existiert nicht
+    Wirft LookupFehler bei Netzwerk-/Serverproblemen.
+    """
+    song = conn.execute(
+        "SELECT artist, album, lc_nummer FROM songs WHERE id = ?", (song_id,)
+    ).fetchone()
+    if song is None:
+        return "unbekannt", None
+    if song["lc_nummer"]:
+        return "schon_vorhanden", song["lc_nummer"]
+    if not song["artist"] or not song["album"]:
+        return "unvollstaendig", None
+
+    lc = lc_nummer_nachschlagen(song["artist"], song["album"])
+    if not lc:
+        return "nicht_gefunden", None
+    conn.execute(
+        "UPDATE songs SET lc_nummer = ? WHERE id = ? AND (lc_nummer IS NULL OR lc_nummer = '')",
+        (lc, song_id),
+    )
+    return "gesetzt", lc
+
+
 def fehlende_lc_nummern_nachschlagen(conn, on_progress=None):
     """Sucht online nach LC-Nummern fuer alle Titel, die noch keine haben
     (aber Interpret UND Album eingetragen haben) - eine Anfrage pro

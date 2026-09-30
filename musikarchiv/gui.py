@@ -312,6 +312,12 @@ class MusikArchivApp(tk.Tk):
         ttk.Label(detail_frame, textvariable=self.detail_album_var).pack(anchor="w")
         ttk.Label(detail_frame, textvariable=self.detail_year_var).pack(anchor="w")
         ttk.Label(detail_frame, textvariable=self.detail_lc_var).pack(anchor="w")
+        self.lc_einzeln_button = ttk.Button(
+            detail_frame,
+            text="LC-Nummer dieses Titels nachschlagen",
+            command=self.lc_nummer_einzeln_nachschlagen,
+        )
+        self.lc_einzeln_button.pack(anchor="w", pady=(2, 0))
         ttk.Label(
             detail_frame, textvariable=self.detail_path_var, wraplength=260, foreground="#666"
         ).pack(anchor="w", pady=(4, 4))
@@ -982,6 +988,61 @@ class MusikArchivApp(tk.Tk):
             "Instrumental-Titel markiert",
             f"{len(betroffen)} Titel als 'Instrumental' markiert:\n{titel_liste}",
         )
+
+    def lc_nummer_einzeln_nachschlagen(self):
+        """Online-Suche nur fuer den aktuell ausgewaehlten Titel."""
+        if self.selected_song_id is None:
+            messagebox.showwarning(
+                "Kein Titel ausgewählt",
+                "Bitte genau einen Titel in der Liste anklicken.",
+            )
+            return
+        song_id = self.selected_song_id
+        self.lc_einzeln_button.state(["disabled"])
+        self.detail_lc_var.set("LC-Nummer wird gesucht …")
+        out_queue = queue.Queue()
+
+        def worker():
+            try:
+                with db.connect(self.db_path) as conn:
+                    out_queue.put(
+                        ("ok", lc_lookup.lc_nummer_fuer_titel_nachschlagen(conn, song_id))
+                    )
+            except lc_lookup.LookupFehler as exc:
+                out_queue.put(("fehler", str(exc)))
+            except Exception as exc:
+                out_queue.put(("fehler", str(exc)))
+
+        threading.Thread(target=worker, daemon=True).start()
+        self.after(80, self._lc_einzeln_poll, song_id, out_queue)
+
+    def _lc_einzeln_poll(self, song_id, out_queue):
+        try:
+            art, inhalt = out_queue.get_nowait()
+        except queue.Empty:
+            self.after(80, self._lc_einzeln_poll, song_id, out_queue)
+            return
+
+        self.lc_einzeln_button.state(["!disabled"])
+        if self.selected_song_id == song_id:
+            self._zeige_titel_details(song_id)
+        if art == "fehler":
+            messagebox.showerror(
+                "Suche fehlgeschlagen",
+                f"Die Online-Suche ist fehlgeschlagen (Internetverbindung?):\n{inhalt}",
+            )
+            return
+        status, lc = inhalt
+        self._refresh_aktuelle_ansicht()
+        if status == "gesetzt":
+            return  # Ergebnis steht jetzt im Detailpanel und in der Liste
+        meldungen = {
+            "schon_vorhanden": f"Dieser Titel hat schon eine LC-Nummer: {lc}",
+            "nicht_gefunden": "Bei MusicBrainz wurde kein sicherer Treffer für dieses Album gefunden.",
+            "unvollstaendig": "Für die Suche werden Interpret und Album benötigt – mindestens eins fehlt.",
+            "unbekannt": "Dieser Titel existiert nicht mehr im Archiv.",
+        }
+        messagebox.showinfo("LC-Nummer", meldungen.get(status, status))
 
     def lc_nummern_nachschlagen(self):
         frage = (

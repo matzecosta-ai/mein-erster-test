@@ -158,3 +158,53 @@ def test_drosselung_wartet_mindestens_eine_sekunde(monkeypatch):
 
     lc_lookup.lc_nummer_nachschlagen("Band", "Album")
     assert wartezeiten and wartezeiten[0] > 1.0
+
+
+def _song_einfuegen(conn, tmp_path, nr, artist, album, lc=None):
+    return conn.execute(
+        "INSERT INTO songs (title, artist, album, lc_nummer, filepath) VALUES (?,?,?,?,?)",
+        (f"Titel {nr}", artist, album, lc, str(tmp_path / f"{nr}.mp3")),
+    ).lastrowid
+
+
+def test_einzelner_titel_aendert_nur_diesen_titel(tmp_path, monkeypatch):
+    antworten = [
+        {"releases": [{"id": "abc", "score": "100"}]},
+        {"label-info": [{"label": {"label-code": 6861}}]},
+    ]
+    monkeypatch.setattr(
+        lc_lookup.urllib.request, "urlopen", lambda *a, **k: _FakeResponse(antworten.pop(0))
+    )
+    with db.connect(tmp_path / "t.db") as conn:
+        erster = _song_einfuegen(conn, tmp_path, 1, "Bruno Mars", "24K Magic")
+        zweiter = _song_einfuegen(conn, tmp_path, 2, "Bruno Mars", "24K Magic")
+
+        assert lc_lookup.lc_nummer_fuer_titel_nachschlagen(conn, erster) == (
+            "gesetzt",
+            "LC-06861",
+        )
+        lcs = {
+            r["id"]: r["lc_nummer"] for r in conn.execute("SELECT id, lc_nummer FROM songs")
+        }
+        assert lcs[erster] == "LC-06861"
+        assert lcs[zweiter] is None  # Rest des Archivs bleibt unangetastet
+
+
+def test_einzelner_titel_ohne_anfrage_wenn_nicht_noetig(tmp_path, monkeypatch):
+    def darf_nicht_aufgerufen_werden(*a, **k):
+        raise AssertionError("Es haette keine Anfrage gestellt werden duerfen")
+
+    monkeypatch.setattr(lc_lookup.urllib.request, "urlopen", darf_nicht_aufgerufen_werden)
+    with db.connect(tmp_path / "t.db") as conn:
+        mit_lc = _song_einfuegen(conn, tmp_path, 1, "A", "B", lc="LC-99999")
+        ohne_album = _song_einfuegen(conn, tmp_path, 2, "A", None)
+
+        assert lc_lookup.lc_nummer_fuer_titel_nachschlagen(conn, mit_lc) == (
+            "schon_vorhanden",
+            "LC-99999",
+        )
+        assert lc_lookup.lc_nummer_fuer_titel_nachschlagen(conn, ohne_album) == (
+            "unvollstaendig",
+            None,
+        )
+        assert lc_lookup.lc_nummer_fuer_titel_nachschlagen(conn, 4711) == ("unbekannt", None)

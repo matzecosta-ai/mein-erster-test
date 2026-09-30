@@ -80,6 +80,23 @@ def cmd_tag_instrumental(args):
 
 
 def cmd_lookup_lc(args):
+    if args.id is not None:
+        with db.connect(args.db) as conn:
+            try:
+                status, lc = lc_lookup.lc_nummer_fuer_titel_nachschlagen(conn, args.id)
+            except lc_lookup.LookupFehler as exc:
+                print(f"Verbindungsfehler: {exc}")
+                return
+        texte = {
+            "gesetzt": f"LC-Nummer eingetragen: {lc}",
+            "schon_vorhanden": f"Titel hat bereits eine LC-Nummer: {lc}",
+            "nicht_gefunden": "Kein sicherer Treffer bei MusicBrainz.",
+            "unvollstaendig": "Interpret oder Album fehlt - Suche nicht möglich.",
+            "unbekannt": f"Kein Titel mit ID {args.id} gefunden.",
+        }
+        print(texte[status])
+        return
+
     print(
         "Suche LC-Nummern online bei MusicBrainz (musicbrainz.org) - "
         "experimentell, ca. 1 Anfrage/Sekunde, kann bei vielen Alben dauern.\n"
@@ -295,6 +312,12 @@ def build_parser():
             "Fehlende LC-Nummern online bei MusicBrainz nachschlagen "
             "(experimentell, braucht Internetverbindung)"
         ),
+    )
+    p.add_argument(
+        "--id",
+        type=int,
+        default=None,
+        help="Nur diesen einen Titel (ID wie in der Suche angezeigt) nachschlagen statt des ganzen Archivs",
     )
     p.set_defaults(func=cmd_lookup_lc)
 
