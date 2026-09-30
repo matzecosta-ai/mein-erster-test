@@ -77,6 +77,14 @@ Es öffnet sich **ein** Fenster mit:
 - **▶ Abspielen / ⏹ Stopp** zum Reinhören in den ausgewählten Titel
   (Doppelklick auf einen Titel startet die Wiedergabe ebenfalls);
   unterstützt mp3/wav/ogg/flac, benötigt die Bibliothek `pygame`
+- **Suchleiste zum Spulen**: während der Wiedergabe läuft unter den
+  Abspiel-Knöpfen ein Schieberegler mit, der die aktuelle Position im Song
+  zeigt (Zeitangabe "1:23 / 3:45" darunter). Reinklicken oder den Regler
+  ziehen springt direkt an diese Stelle im Song – so lassen sich gezielt
+  interessante Stellen ansteuern. Zusätzlich gibt es die Knöpfe "⏪ 10s"
+  und "10s ⏩" zum schnellen Vor-/Zurückspringen in 10-Sekunden-Schritten.
+  Funktioniert nur, wenn die Dateidauer bekannt ist (steht normalerweise im
+  Detailbereich); ist das nicht der Fall, bleibt die Leiste deaktiviert.
 - **Automatische Stimmungs-Vorschläge**: beim Import wird anhand des
   Genre-Tags der Datei eine passende Stimmung vorgeschlagen und vergeben
   (z.B. "Metal" → Wut/Spannung, "Ballade" → Liebeslieder/Romantik) – lässt
@@ -120,6 +128,22 @@ Es öffnet sich **ein** Fenster mit:
   Stimmung "Instrumental" vergeben – Titel/Album bleiben unverändert.
   Für bereits importierte Titel: "Werkzeuge ▾" → "Instrumental-Titel
   markieren".
+- **LC-Nummern online nachschlagen** (experimentell): "Werkzeuge ▾" →
+  "LC-Nummern online nachschlagen …" sucht für alle Titel ohne LC-Nummer
+  (aber mit Interpret **und** Album) bei der freien Musikdatenbank
+  [MusicBrainz](https://musicbrainz.org) nach dem passenden Labelcode und
+  trägt ihn ein. Das ist ein **Bestmöglicher-Versuch, keine Garantie**:
+  MusicBrainz wird von Freiwilligen gepflegt, nicht jedes Album ist erfasst,
+  und in Einzelfällen (mehrere Pressungen, Wiederveröffentlichungen auf
+  anderen Labels) kann die Zuordnung danebenliegen – deshalb werden nur
+  sehr sichere Treffer automatisch übernommen. **Bestehende LC-Nummern
+  werden nie überschrieben.** Braucht eine Internetverbindung; bei vielen
+  verschiedenen Alben kann es etwas dauern (max. 1 Anfrage pro Sekunde,
+  aus Rücksicht auf den kostenlosen Dienst), läuft aber im Hintergrund mit
+  Fortschrittsanzeige, ohne das Programm zu blockieren. Am Ende zeigt eine
+  Übersicht, welche Alben gefunden wurden, welche nicht, und ob es
+  Verbindungsprobleme gab. Auch über die Kommandozeile verfügbar:
+  `python -m musikarchiv lookup-lc`.
 
 Für ein Icon auf dem Desktop:
 - **Windows:** `Verknuepfung_erstellen.bat` einmal per Doppelklick
@@ -229,6 +253,19 @@ python -m musikarchiv tag-instrumental
 
 Vergibt die Stimmung "Instrumental" an bereits importierte Titel, deren
 Titel, Album oder Genre einen Instrumental-Hinweis enthält.
+
+### 9. LC-Nummern online nachschlagen (experimentell)
+
+```bash
+python -m musikarchiv lookup-lc
+```
+
+Sucht für alle Titel ohne LC-Nummer (mit Interpret und Album) bei
+MusicBrainz (musicbrainz.org) nach dem Labelcode und trägt ihn ein.
+Braucht Internet, dauert bei vielen Alben etwas (max. 1 Anfrage/Sekunde).
+Bestehende LC-Nummern werden nie überschrieben; nur sehr sichere Treffer
+werden übernommen. Siehe Hinweis zur GUI-Variante weiter oben – das ist
+ein Bestmöglicher-Versuch, keine Garantie.
 
 ## Tests
 

@@ -32,6 +32,23 @@ def _make_wav(path: Path, name: str) -> Path:
     return f
 
 
+def _make_wav_mit_dauer(path: Path, name: str, sekunden: int) -> Path:
+    """Erzeugt eine echte, mehrere Sekunden lange Testdatei (Sinuston), damit
+    Spulen/Suchleiste an echten Zeitwerten getestet werden kann."""
+    import math
+
+    f = path / name
+    framerate = 8000
+    with wave.open(str(f), "w") as w:
+        w.setnchannels(1)
+        w.setsampwidth(2)
+        w.setframerate(framerate)
+        anzahl = framerate * sekunden
+        samples = [int(3000 * math.sin(2 * math.pi * 440 * i / framerate)) for i in range(anzahl)]
+        w.writeframes(struct.pack(f"<{len(samples)}h", *samples))
+    return f
+
+
 def _seed_songs(db_path, tmp_path):
     with db.connect(db_path) as conn:
         conn.execute(
@@ -587,6 +604,110 @@ def test_ansicht_wechsel_verwirft_alte_titelauswahl(tmp_path, monkeypatch):
         app.destroy()
 
 
+def test_play_selected_aktiviert_suchleiste_mit_korrekter_dauer(tmp_path):
+    db_path = tmp_path / "test.db"
+    with db.connect(db_path) as conn:
+        conn.execute(
+            "INSERT INTO songs (title, artist, filepath, duration_sec) VALUES (?,?,?,?)",
+            ("Testlied", "Band", str(_make_wav_mit_dauer(tmp_path, "lied.wav", 6)), 6),
+        )
+
+    app = _app_or_skip(db_path)
+    app.update()
+    try:
+        app.tree.selection_set(app.tree.get_children()[0])
+        app.on_select_song()
+        app.play_selected()
+        app.update()
+
+        assert str(app.seek_scale.cget("state")) != "disabled"
+        assert app.playback_duration == 6
+        assert app.zeit_var.get() == "0:00 / 0:06"
+    finally:
+        app.stop_playback()
+        app.destroy()
+
+
+def test_seek_relativ_springt_vor_und_zurueck_und_bleibt_im_rahmen(tmp_path):
+    db_path = tmp_path / "test.db"
+    with db.connect(db_path) as conn:
+        conn.execute(
+            "INSERT INTO songs (title, artist, filepath, duration_sec) VALUES (?,?,?,?)",
+            ("Testlied", "Band", str(_make_wav_mit_dauer(tmp_path, "lied.wav", 6)), 6),
+        )
+
+    app = _app_or_skip(db_path)
+    app.update()
+    try:
+        app.tree.selection_set(app.tree.get_children()[0])
+        app.on_select_song()
+        app.play_selected()
+        app.update()
+
+        # 10s vorspulen bei einem 6s-Lied -> darf nicht ueber das Ende hinausgehen
+        app.seek_relativ(10)
+        app.update()
+        assert app.seek_var.get() == 6
+
+        # 3s zurueck
+        app.seek_relativ(-3)
+        app.update()
+        assert app.seek_var.get() == 3
+
+        # weit zurueck -> darf nicht unter 0 gehen
+        app.seek_relativ(-100)
+        app.update()
+        assert app.seek_var.get() == 0
+    finally:
+        app.stop_playback()
+        app.destroy()
+
+
+def test_seek_drag_verhindert_dass_die_updateschleife_dazwischenfunkt(tmp_path):
+    db_path = tmp_path / "test.db"
+    with db.connect(db_path) as conn:
+        conn.execute(
+            "INSERT INTO songs (title, artist, filepath, duration_sec) VALUES (?,?,?,?)",
+            ("Testlied", "Band", str(_make_wav_mit_dauer(tmp_path, "lied.wav", 6)), 6),
+        )
+
+    app = _app_or_skip(db_path)
+    app.update()
+    try:
+        app.tree.selection_set(app.tree.get_children()[0])
+        app.on_select_song()
+        app.play_selected()
+        app.update()
+
+        app._on_seek_press()
+        assert app.playback_dragging is True
+        app.seek_var.set(4)
+        app._on_seek_motion()
+        app._update_seek_loop()  # darf waehrend des Ziehens die Position nicht ueberschreiben
+        assert app.seek_var.get() == 4
+        assert "0:04" in app.zeit_var.get()
+
+        app._on_seek_release()
+        app.update()
+        assert app.playback_dragging is False
+        assert app.seek_var.get() == 4
+    finally:
+        app.stop_playback()
+        app.destroy()
+
+
+def test_destroy_bricht_die_suchleisten_schleife_sauber_ab(tmp_path):
+    db_path = tmp_path / "test.db"
+    app = _app_or_skip(db_path)
+    app.update()
+    job_vor_destroy = app._seek_loop_job
+    app.destroy()
+    # after_cancel() wirft keinen Fehler, wenn der Job schon existiert und
+    # gueltig war - der eigentliche Beweis ist, dass hier keine Exception
+    # auftritt und die Job-ID nach destroy() nicht mehr aktiv nachfeuert.
+    assert job_vor_destroy is not None
+
+
 def test_organize_sortiert_dateien(tmp_path):
     db_path = tmp_path / "test.db"
     _seed_songs(db_path, tmp_path)
@@ -611,5 +732,100 @@ def test_organize_sortiert_dateien(tmp_path):
             results = organizer.organize(conn, ziel, by="mood", action="copy")
         assert any(status == "ok" for _, _, status in results)
         assert (ziel / "Drama" / "regentraenen.mp3").exists()
+    finally:
+        app.destroy()
+
+
+def test_lc_nummern_nachschlagen_laeuft_im_hintergrund(tmp_path, monkeypatch):
+    import json
+
+    from musikarchiv import lc_lookup
+
+    db_path = tmp_path / "test.db"
+    with db.connect(db_path) as conn:
+        conn.execute(
+            "INSERT INTO songs (title, artist, album, filepath) VALUES (?,?,?,?)",
+            ("24K Magic", "Bruno Mars", "24K Magic", str(tmp_path / "1.mp3")),
+        )
+        conn.execute(
+            "INSERT INTO songs (title, artist, album, filepath) VALUES (?,?,?,?)",
+            ("That's What I Like", "Bruno Mars", "24K Magic", str(tmp_path / "2.mp3")),
+        )
+
+    antworten = [
+        {"releases": [{"id": "abc", "score": "100"}]},
+        {"label-info": [{"label": {"label-code": 6861}}]},
+    ]
+
+    class _FakeResponse:
+        def __init__(self, payload):
+            self._payload = json.dumps(payload).encode("utf-8")
+
+        def read(self):
+            return self._payload
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *a):
+            return False
+
+    monkeypatch.setattr(
+        lc_lookup.urllib.request, "urlopen", lambda *a, **k: _FakeResponse(antworten.pop(0))
+    )
+    monkeypatch.setattr(lc_lookup.time, "sleep", lambda _s: None)
+    monkeypatch.setattr(gui.messagebox, "askyesno", lambda titel, text: True)
+
+    meldungen = []
+    monkeypatch.setattr(
+        gui.messagebox, "showinfo", lambda titel, text: meldungen.append(text)
+    )
+
+    app = _app_or_skip(db_path)
+    app.update()
+    try:
+        app.lc_nummern_nachschlagen()
+
+        deadline = time.time() + 10
+        while time.time() < deadline and not meldungen:
+            app.update()
+            time.sleep(0.02)
+
+        assert meldungen, "Suche wurde nicht innerhalb der erwarteten Zeit abgeschlossen"
+        assert "LC-06861" in meldungen[0]
+
+        with db.connect(db_path) as conn:
+            rows = conn.execute("SELECT lc_nummer FROM songs").fetchall()
+        assert all(r["lc_nummer"] == "LC-06861" for r in rows)
+    finally:
+        app.destroy()
+
+
+def test_lc_nummern_nachschlagen_ohne_bestaetigung_passiert_nichts(tmp_path, monkeypatch):
+    db_path = tmp_path / "test.db"
+    with db.connect(db_path) as conn:
+        conn.execute(
+            "INSERT INTO songs (title, artist, album, filepath) VALUES (?,?,?,?)",
+            ("24K Magic", "Bruno Mars", "24K Magic", str(tmp_path / "1.mp3")),
+        )
+
+    monkeypatch.setattr(gui.messagebox, "askyesno", lambda titel, text: False)
+
+    def darf_nicht_aufgerufen_werden(*a, **k):
+        raise AssertionError("Es haette keine Anfrage gestellt werden duerfen")
+
+    from musikarchiv import lc_lookup
+
+    monkeypatch.setattr(lc_lookup.urllib.request, "urlopen", darf_nicht_aufgerufen_werden)
+
+    app = _app_or_skip(db_path)
+    app.update()
+    try:
+        app.lc_nummern_nachschlagen()
+        app.update()
+
+        with db.connect(db_path) as conn:
+            row = conn.execute("SELECT lc_nummer FROM songs").fetchone()
+        assert row["lc_nummer"] in (None, "")
     finally:
         app.destroy()

@@ -3,12 +3,13 @@
 import queue
 import sys
 import threading
+import time
 import tkinter as tk
 import unicodedata
 from pathlib import Path
 from tkinter import filedialog, messagebox, ttk
 
-from . import db, importer, moods, organizer
+from . import db, importer, lc_lookup, moods, organizer
 
 APP_DIR = Path(__file__).resolve().parent.parent
 ICON_ICO_PATH = APP_DIR / "icon.ico"
@@ -83,10 +84,27 @@ class MusikArchivApp(tk.Tk):
         self.sort_column_album = "album"
         self.sort_reverse_album = False
         self.album_filter = None  # (artist_or_None, album_or_None), aktiv nach "Titel anzeigen"
+        self.detail_duration_sec = None
+        self.playback_offset = 0.0
+        self.playback_start_clock = time.time()
+        self.playback_duration = None
+        self.playback_dragging = False
         self._build_widgets()
         self.refresh_moods()
         self.refresh_songs()
         self.protocol("WM_DELETE_WINDOW", self._on_close)
+        self._seek_loop_job = self.after(300, self._update_seek_loop)
+
+    def destroy(self):
+        # Die Suchleisten-Schleife wuerde sich sonst nach dem Schliessen des
+        # Fensters immer weiter selbst neu einplanen (self.after reschedule).
+        job = getattr(self, "_seek_loop_job", None)
+        if job is not None:
+            try:
+                self.after_cancel(job)
+            except Exception:
+                pass
+        super().destroy()
 
     def _set_icon(self):
         # Windows kennt .ico ueber iconbitmap; macOS/Linux brauchen ein
@@ -136,6 +154,10 @@ class MusikArchivApp(tk.Tk):
         )
         werkzeuge_menu.add_command(
             label="Instrumental-Titel markieren", command=self.tag_instrumentals
+        )
+        werkzeuge_menu.add_separator()
+        werkzeuge_menu.add_command(
+            label="LC-Nummern online nachschlagen …", command=self.lc_nummern_nachschlagen
         )
         ttk.Menubutton(toolbar, text="Werkzeuge ▾", menu=werkzeuge_menu).pack(
             side="left", padx=(0, 8)
@@ -296,12 +318,32 @@ class MusikArchivApp(tk.Tk):
 
         playback_row = ttk.Frame(detail_frame)
         playback_row.pack(fill="x", pady=(0, 4))
+        ttk.Button(
+            playback_row, text="⏪ 10s", width=6, command=lambda: self.seek_relativ(-10)
+        ).pack(side="left")
         ttk.Button(playback_row, text="▶ Abspielen", command=self.play_selected).pack(
-            side="left"
+            side="left", padx=(4, 0)
         )
         ttk.Button(playback_row, text="⏹ Stopp", command=self.stop_playback).pack(
-            side="left", padx=(6, 0)
+            side="left", padx=(4, 0)
         )
+        ttk.Button(
+            playback_row, text="10s ⏩", width=6, command=lambda: self.seek_relativ(10)
+        ).pack(side="left", padx=(4, 0))
+
+        self.seek_var = tk.DoubleVar(value=0)
+        self.seek_scale = ttk.Scale(
+            detail_frame, from_=0, to=1, orient="horizontal", variable=self.seek_var
+        )
+        self.seek_scale.pack(fill="x", pady=(6, 2))
+        self.seek_scale.state(["disabled"])
+        self.seek_scale.bind("<ButtonPress-1>", self._on_seek_press)
+        self.seek_scale.bind("<B1-Motion>", self._on_seek_motion)
+        self.seek_scale.bind("<ButtonRelease-1>", self._on_seek_release)
+
+        self.zeit_var = tk.StringVar(value="")
+        ttk.Label(detail_frame, textvariable=self.zeit_var, foreground="#555").pack(anchor="w")
+
         self.playback_status_var = tk.StringVar(value="")
         ttk.Label(detail_frame, textvariable=self.playback_status_var, foreground="#555").pack(
             anchor="w", pady=(0, 12)
@@ -721,6 +763,7 @@ class MusikArchivApp(tk.Tk):
         self.detail_lc_var.set(f"LC-Nummer: {song['lc_nummer']}" if song["lc_nummer"] else "")
         self.detail_path_var.set(song["filepath"])
         self.detail_genre = song["genre"]
+        self.detail_duration_sec = song["duration_sec"]
         self.mood_listbox.delete(0, "end")
         for mood in song_moods:
             self.mood_listbox.insert("end", mood)
@@ -735,6 +778,7 @@ class MusikArchivApp(tk.Tk):
         self.detail_lc_var.set("")
         self.detail_path_var.set("")
         self.detail_genre = None
+        self.detail_duration_sec = None
         self.mood_listbox.delete(0, "end")
 
     # ------------------------------------------------------------ Aktionen
@@ -939,6 +983,118 @@ class MusikArchivApp(tk.Tk):
             f"{len(betroffen)} Titel als 'Instrumental' markiert:\n{titel_liste}",
         )
 
+    def lc_nummern_nachschlagen(self):
+        frage = (
+            "Sucht online bei MusicBrainz (musicbrainz.org) nach fehlenden LC-Nummern "
+            "und trägt sie ein. Das ist experimentell (Bestmöglicher-Versuch, keine Garantie) "
+            "und braucht eine Internetverbindung. Bei vielen Alben kann es dauern (ca. 1 "
+            "Anfrage pro Sekunde). Bestehende LC-Nummern werden nie überschrieben.\n\n"
+            "Jetzt starten?"
+        )
+        if not messagebox.askyesno("LC-Nummern online nachschlagen", frage):
+            return
+
+        fenster = tk.Toplevel(self)
+        fenster.title("LC-Nummern werden gesucht…")
+        fenster.resizable(False, False)
+        fenster.transient(self)
+        fenster.protocol("WM_DELETE_WINDOW", lambda: None)
+
+        ttk.Label(
+            fenster, text="Suche läuft, bitte warten…", padding=(16, 16, 16, 4)
+        ).pack()
+        fortschritt_var = tk.DoubleVar(value=0)
+        ttk.Progressbar(
+            fenster, orient="horizontal", length=380, mode="determinate",
+            variable=fortschritt_var, maximum=100,
+        ).pack(padx=16, pady=(0, 6))
+        status_var = tk.StringVar(value="Suche betroffene Alben …")
+        ttk.Label(fenster, textvariable=status_var, padding=(16, 0, 16, 16)).pack()
+
+        fenster.update_idletasks()
+        x = self.winfo_rootx() + (self.winfo_width() - fenster.winfo_width()) // 2
+        y = self.winfo_rooty() + (self.winfo_height() - fenster.winfo_height()) // 2
+        fenster.geometry(f"+{max(x, 0)}+{max(y, 0)}")
+        fenster.grab_set()
+
+        out_queue = queue.Queue()
+        thread = threading.Thread(
+            target=self._lc_lookup_worker, args=(out_queue,), daemon=True
+        )
+        thread.start()
+        self.after(80, self._lc_lookup_poll, fenster, fortschritt_var, status_var, out_queue)
+
+    def _lc_lookup_worker(self, out_queue):
+        try:
+            with db.connect(self.db_path) as conn:
+                def fortschritt(index, gesamt, bezeichnung):
+                    out_queue.put(("progress", index, gesamt, bezeichnung))
+
+                ergebnis = lc_lookup.fehlende_lc_nummern_nachschlagen(conn, on_progress=fortschritt)
+            out_queue.put(("done", ergebnis))
+        except Exception as exc:
+            out_queue.put(("error", str(exc)))
+
+    def _lc_lookup_poll(self, fenster, fortschritt_var, status_var, out_queue):
+        try:
+            while True:
+                nachricht = out_queue.get_nowait()
+                art = nachricht[0]
+                if art == "progress":
+                    _, index, gesamt, bezeichnung = nachricht
+                    prozent = (index / gesamt * 100) if gesamt else 100
+                    fortschritt_var.set(prozent)
+                    status_var.set(f"{index} von {gesamt}: {bezeichnung}")
+                elif art == "done":
+                    fenster.grab_release()
+                    fenster.destroy()
+                    self._lc_lookup_abgeschlossen(nachricht[1])
+                    return
+                elif art == "error":
+                    fenster.grab_release()
+                    fenster.destroy()
+                    messagebox.showerror(
+                        "Suche fehlgeschlagen",
+                        f"Bei der Online-Suche ist ein Fehler aufgetreten:\n{nachricht[1]}",
+                    )
+                    return
+        except queue.Empty:
+            pass
+        self.after(80, self._lc_lookup_poll, fenster, fortschritt_var, status_var, out_queue)
+
+    def _lc_lookup_abgeschlossen(self, ergebnis):
+        self._refresh_aktuelle_ansicht()
+
+        gefunden = ergebnis["gefunden"]
+        nicht_gefunden = ergebnis["nicht_gefunden"]
+        fehler = ergebnis["fehler"]
+
+        if not gefunden and not nicht_gefunden and not fehler:
+            messagebox.showinfo(
+                "Nichts zu tun",
+                "Keine Titel ohne LC-Nummer gefunden (oder es fehlen Interpret/Album-Angaben).",
+            )
+            return
+
+        teile = []
+        if gefunden:
+            anzahl_titel = sum(anzahl for anzahl, _, _, _ in gefunden)
+            details = "\n".join(
+                f"- '{album}' von {artist}: {lc} ({anzahl} Titel)"
+                for anzahl, artist, album, lc in gefunden
+            )
+            teile.append(
+                f"{len(gefunden)} Album(en) gefunden, {anzahl_titel} Titel aktualisiert:\n{details}"
+            )
+        if nicht_gefunden:
+            details = "\n".join(f"- '{album}' von {artist}" for artist, album in nicht_gefunden)
+            teile.append(f"{len(nicht_gefunden)} Album(en) ohne sicheren Treffer:\n{details}")
+        if fehler:
+            details = "\n".join(f"- '{album}' von {artist}: {msg}" for artist, album, msg in fehler)
+            teile.append(f"{len(fehler)} Album(en) mit Verbindungsfehler:\n{details}")
+
+        messagebox.showinfo("LC-Nummern-Suche abgeschlossen", "\n\n".join(teile))
+
     def suggest_mood(self):
         if self.selected_song_id is None:
             messagebox.showwarning("Kein Titel ausgewählt", "Bitte zuerst einen Titel in der Liste wählen.")
@@ -980,7 +1136,18 @@ class MusikArchivApp(tk.Tk):
             mixer.music.stop()
             mixer.music.load(filepath)
             mixer.music.play()
+            self.playback_offset = 0.0
+            self.playback_start_clock = time.time()
+            self.playback_duration = self.detail_duration_sec
             self.playback_status_var.set(f"▶ Spielt: {self.detail_title_var.get()}")
+            if self.playback_duration:
+                self.seek_scale.configure(to=self.playback_duration)
+                self.seek_var.set(0)
+                self.seek_scale.state(["!disabled"])
+                self.zeit_var.set(f"0:00 / {_format_dauer(self.playback_duration)}")
+            else:
+                self.seek_scale.state(["disabled"])
+                self.zeit_var.set("Länge unbekannt - Suchleiste nicht verfügbar")
         except Exception as exc:
             self.playback_status_var.set("")
             messagebox.showerror(
@@ -993,6 +1160,72 @@ class MusikArchivApp(tk.Tk):
         if mixer is not None:
             mixer.music.stop()
         self.playback_status_var.set("")
+
+    def seek_relativ(self, delta_sekunden):
+        if not self.playback_duration:
+            return
+        neue_position = self._aktuelle_wiedergabe_position() + delta_sekunden
+        neue_position = max(0.0, min(self.playback_duration, neue_position))
+        self._seek_zu(neue_position)
+
+    def _aktuelle_wiedergabe_position(self):
+        mixer = _get_mixer()
+        if mixer is None or not self.playback_duration or not mixer.music.get_busy():
+            return self.playback_offset
+        vergangen = self.playback_offset + (time.time() - self.playback_start_clock)
+        return max(0.0, min(self.playback_duration, vergangen))
+
+    def _seek_zu(self, position):
+        mixer = _get_mixer()
+        if mixer is None or not self.playback_duration:
+            return
+        filepath = self.detail_path_var.get()
+        if not filepath:
+            return
+        try:
+            mixer.music.play(start=position)
+            self.playback_offset = position
+            self.playback_start_clock = time.time()
+            self.seek_var.set(position)
+            self.zeit_var.set(
+                f"{_format_dauer(int(position))} / {_format_dauer(self.playback_duration)}"
+            )
+            self.playback_status_var.set(f"▶ Spielt: {self.detail_title_var.get()}")
+        except Exception as exc:
+            messagebox.showerror(
+                "Spulen nicht möglich",
+                f"Konnte nicht an diese Stelle springen (Format unterstützt "
+                f"evtl. kein Spulen):\n{exc}",
+            )
+
+    def _on_seek_press(self, _event=None):
+        self.playback_dragging = True
+
+    def _on_seek_motion(self, _event=None):
+        if not self.playback_duration:
+            return
+        ziel = self.seek_var.get()
+        self.zeit_var.set(f"{_format_dauer(int(ziel))} / {_format_dauer(self.playback_duration)}")
+
+    def _on_seek_release(self, _event=None):
+        self.playback_dragging = False
+        if not self.playback_duration:
+            return
+        self._seek_zu(self.seek_var.get())
+
+    def _update_seek_loop(self):
+        if (
+            not self.playback_dragging
+            and self.playback_duration
+            and _get_mixer() is not None
+            and _get_mixer().music.get_busy()
+        ):
+            position = self._aktuelle_wiedergabe_position()
+            self.seek_var.set(position)
+            self.zeit_var.set(
+                f"{_format_dauer(int(position))} / {_format_dauer(self.playback_duration)}"
+            )
+        self._seek_loop_job = self.after(300, self._update_seek_loop)
 
     def add_mood(self):
         if self.selected_song_id is None:
@@ -1052,7 +1285,7 @@ class MusikArchivApp(tk.Tk):
 
 
 def _format_dauer(duration_sec):
-    if not duration_sec:
+    if duration_sec is None:
         return ""
     minuten, sekunden = divmod(int(duration_sec), 60)
     return f"{minuten}:{sekunden:02d}"

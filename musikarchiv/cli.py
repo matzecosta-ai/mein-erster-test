@@ -1,7 +1,7 @@
 import argparse
 from pathlib import Path
 
-from . import db, importer, moods, organizer
+from . import db, importer, lc_lookup, moods, organizer
 
 SUGGESTED_MOODS = moods.SUGGESTED_MOODS
 
@@ -77,6 +77,40 @@ def cmd_tag_instrumental(args):
         print(f"{len(betroffen)} Titel als Instrumental markiert:")
         for _, titel in betroffen:
             print(f"  '{titel}'")
+
+
+def cmd_lookup_lc(args):
+    print(
+        "Suche LC-Nummern online bei MusicBrainz (musicbrainz.org) - "
+        "experimentell, ca. 1 Anfrage/Sekunde, kann bei vielen Alben dauern.\n"
+        "Bestehende LC-Nummern werden nie überschrieben."
+    )
+
+    def fortschritt(index, gesamt, bezeichnung):
+        print(f"  ... ({index}/{gesamt}) {bezeichnung}")
+
+    with db.connect(args.db) as conn:
+        try:
+            ergebnis = lc_lookup.fehlende_lc_nummern_nachschlagen(conn, on_progress=fortschritt)
+        except Exception as exc:
+            print(f"Abgebrochen wegen eines unerwarteten Fehlers: {exc}")
+            return
+
+    print()
+    if ergebnis["gefunden"]:
+        print(f"{len(ergebnis['gefunden'])} Album(en) gefunden:")
+        for anzahl, artist, album, lc in ergebnis["gefunden"]:
+            print(f"  '{album}' von {artist}: {lc} ({anzahl} Titel aktualisiert)")
+    else:
+        print("Keine LC-Nummern gefunden.")
+    if ergebnis["nicht_gefunden"]:
+        print(f"{len(ergebnis['nicht_gefunden'])} Album(en) ohne Treffer:")
+        for artist, album in ergebnis["nicht_gefunden"]:
+            print(f"  '{album}' von {artist}")
+    if ergebnis["fehler"]:
+        print(f"{len(ergebnis['fehler'])} Album(en) mit Verbindungsfehler:")
+        for artist, album, fehler in ergebnis["fehler"]:
+            print(f"  '{album}' von {artist}: {fehler}")
 
 
 def _find_song(conn, identifier):
@@ -254,6 +288,15 @@ def build_parser():
         help="Bereits importierte Titel mit Instrumental-Hinweis als 'Instrumental' markieren",
     )
     p.set_defaults(func=cmd_tag_instrumental)
+
+    p = sub.add_parser(
+        "lookup-lc",
+        help=(
+            "Fehlende LC-Nummern online bei MusicBrainz nachschlagen "
+            "(experimentell, braucht Internetverbindung)"
+        ),
+    )
+    p.set_defaults(func=cmd_lookup_lc)
 
     p = sub.add_parser(
         "delete",
