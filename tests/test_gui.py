@@ -394,6 +394,74 @@ def test_delete_selected_ohne_bestaetigung_loescht_nichts(tmp_path, monkeypatch)
         app.destroy()
 
 
+def test_sortierung_nach_jahr(tmp_path):
+    db_path = tmp_path / "test.db"
+    with db.connect(db_path) as conn:
+        conn.execute(
+            "INSERT INTO songs (title, artist, year, filepath) VALUES (?,?,?,?)",
+            ("Neuer Song", "Band A", 2020, str(tmp_path / "1.mp3")),
+        )
+        conn.execute(
+            "INSERT INTO songs (title, artist, year, filepath) VALUES (?,?,?,?)",
+            ("Alter Song", "Band B", 1975, str(tmp_path / "2.mp3")),
+        )
+        conn.execute(
+            "INSERT INTO songs (title, artist, filepath) VALUES (?,?,?)",
+            ("Ohne Jahr", "Band C", str(tmp_path / "3.mp3")),
+        )
+
+    app = _app_or_skip(db_path)
+    app.update()
+    try:
+        app.sort_by("jahr")
+        app.update()
+        titel = [app.tree.item(i, "values")[0] for i in app.tree.get_children()]
+        # Aufsteigend: Titel ohne Jahr (NULL) zuerst, dann 1975, dann 2020.
+        assert titel == ["Ohne Jahr", "Alter Song", "Neuer Song"]
+
+        app.sort_by("jahr")
+        app.update()
+        titel = [app.tree.item(i, "values")[0] for i in app.tree.get_children()]
+        assert titel == ["Neuer Song", "Alter Song", "Ohne Jahr"]
+    finally:
+        app.destroy()
+
+
+def test_nur_vorhandene_dateien_filter(tmp_path):
+    db_path = tmp_path / "test.db"
+    vorhandene_datei = tmp_path / "vorhanden.mp3"
+    vorhandene_datei.write_bytes(b"x")
+    with db.connect(db_path) as conn:
+        conn.execute(
+            "INSERT INTO songs (title, artist, filepath) VALUES (?,?,?)",
+            ("Verfuegbar", "Band A", str(vorhandene_datei)),
+        )
+        conn.execute(
+            "INSERT INTO songs (title, artist, filepath) VALUES (?,?,?)",
+            ("Fehlende Festplatte", "Band B", str(tmp_path / "nicht_da" / "fehlt.mp3")),
+        )
+
+    app = _app_or_skip(db_path)
+    app.update()
+    try:
+        assert len(app.tree.get_children()) == 2
+
+        app.nur_verfuegbare_var.set(True)
+        app.refresh_songs()
+        app.update()
+
+        titel = [app.tree.item(i, "values")[0] for i in app.tree.get_children()]
+        assert titel == ["Verfuegbar"]
+        assert "ausgeblendet" in app.status_var.get()
+
+        app.nur_verfuegbare_var.set(False)
+        app.refresh_songs()
+        app.update()
+        assert len(app.tree.get_children()) == 2
+    finally:
+        app.destroy()
+
+
 def test_spalten_sortierung_per_klick_auf_kopfzeile(tmp_path):
     db_path = tmp_path / "test.db"
     _seed_songs(db_path, tmp_path)

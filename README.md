@@ -48,10 +48,18 @@ Es öffnet sich **ein** Fenster mit:
   viel GB) nicht ein, sondern zeigt live an, wie weit der Import ist
 - einem Suchfeld oben, das die Liste beim Tippen sofort nach Titel filtert
 - einem Stimmungs-Filter (Dropdown) daneben
-- **Sortierbare Spalten**: Klick auf "Titel", "Interpret", "Album",
+- **Sortierbare Spalten**: Klick auf "Titel", "Interpret", "Jahr", "Album",
   "Musikrichtung" oder "Stimmungen" in der Kopfzeile sortiert die Liste
   danach; nochmaliger Klick auf dieselbe Spalte dreht die Reihenfolge um
   (▲/▼-Pfeil zeigt an, wonach gerade sortiert ist)
+- **"Nur vorhandene Dateien anzeigen"** (Checkbox unter der Werkzeugleiste):
+  blendet Titel aus, deren Musikdatei gerade nicht erreichbar ist – z.B.
+  weil sie auf einer externen Festplatte liegen, die nicht angeschlossen
+  ist. In der Status-Anzeige unten rechts steht dann, wie viele Titel
+  deswegen ausgeblendet wurden. Betrifft Titel- und Album-Ansicht
+  gleichermaßen. Daneben der Knopf "🔄 Aktualisieren": lädt die Liste neu
+  und prüft die Dateien erneut – z.B. nachdem eine externe Festplatte neu
+  angeschlossen wurde, damit deren Titel wieder auftauchen.
 - **Ansicht umschalten: Titel / Alben** (Umschalter oben in der
   Werkzeugleiste): Die Album-Ansicht fasst alle Titel **desselben Albums**
   zu einer aufklappbaren Zeile zusammen (mit Interpret, Jahr, Anzahl

@@ -21,6 +21,7 @@ ALLE_STIMMUNGEN = "(alle Stimmungen)"
 SORTIERBARE_SPALTEN = {
     "titel": "s.title",
     "interpret": "s.artist",
+    "jahr": "s.year",
     "album": "s.album",
     "genre": "s.genre",
     "stimmungen": "moods",
@@ -28,6 +29,7 @@ SORTIERBARE_SPALTEN = {
 SPALTEN_BESCHRIFTUNG = {
     "titel": "Titel",
     "interpret": "Interpret",
+    "jahr": "Jahr",
     "album": "Album",
     "genre": "Musikrichtung",
     "stimmungen": "Stimmungen",
@@ -202,6 +204,20 @@ class MusikArchivApp(tk.Tk):
         ttk.Label(toolbar, textvariable=self.status_var, foreground="#555").pack(
             side="right"
         )
+
+        toolbar2 = ttk.Frame(self, padding=(8, 0, 8, 8))
+        toolbar2.pack(side="top", fill="x")
+        self.nur_verfuegbare_var = tk.BooleanVar(value=False)
+        ttk.Checkbutton(
+            toolbar2,
+            text="Nur vorhandene Dateien anzeigen (z.B. wenn eine externe Festplatte "
+            "angeschlossen ist)",
+            variable=self.nur_verfuegbare_var,
+            command=self._refresh_aktuelle_ansicht,
+        ).pack(side="left")
+        ttk.Button(
+            toolbar2, text="🔄 Aktualisieren", command=self._refresh_aktuelle_ansicht
+        ).pack(side="left", padx=(16, 0))
 
         self.filter_leiste = ttk.Frame(self, padding=(8, 0))
         self.filter_leiste_label = ttk.Label(self.filter_leiste, text="", foreground="#555")
@@ -553,6 +569,10 @@ class MusikArchivApp(tk.Tk):
         with db.connect(self.db_path) as conn:
             rows = conn.execute(query, params).fetchall()
 
+        gesamt_gefunden = len(rows)
+        if self.nur_verfuegbare_var.get():
+            rows = [row for row in rows if Path(row["filepath"]).exists()]
+
         self._update_sort_indicator()
         self.tree.delete(*self.tree.get_children())
         for row in rows:
@@ -584,7 +604,13 @@ class MusikArchivApp(tk.Tk):
         else:
             self.filter_leiste.pack_forget()
 
-        self.status_var.set(f"{len(rows)} Titel angezeigt")
+        ausgeblendet = gesamt_gefunden - len(rows)
+        if ausgeblendet:
+            self.status_var.set(
+                f"{len(rows)} Titel angezeigt ({ausgeblendet} ausgeblendet, Datei nicht gefunden)"
+            )
+        else:
+            self.status_var.set(f"{len(rows)} Titel angezeigt")
         vorhandene_ids = self.tree.get_children()
         wiederherzustellen = [
             str(sid) for sid in self.selected_song_ids if str(sid) in vorhandene_ids
@@ -630,6 +656,9 @@ class MusikArchivApp(tk.Tk):
 
         with db.connect(self.db_path) as conn:
             rows = conn.execute(query, params).fetchall()
+
+        if self.nur_verfuegbare_var.get():
+            rows = [row for row in rows if Path(row["filepath"]).exists()]
 
         # In Python nach Album gruppieren (nicht nach Interpret+Album!): ein
         # Album soll auch dann eine einzige Zeile ergeben, wenn einzelne
