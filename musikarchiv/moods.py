@@ -1,0 +1,222 @@
+"""Alles rund um Stimmungen: Vorschlagslisten, Genre-Heuristik und die
+Erkennung von Stimmungswoertern, die versehentlich im Album-Feld stehen."""
+
+import re
+
+SUGGESTED_MOODS = [
+    "Freude",
+    "Spannung",
+    "Liebeslieder",
+    "Drama",
+    "Trauer",
+    "Wut",
+    "Entspannung",
+    "Party",
+    "Nostalgie",
+    "Motivation",
+    "Melancholie",
+    "Romantik",
+    "Hoffnung",
+    "Wehmut",
+    "Charts",
+    "Instrumental",
+]
+
+CHART_MOOD_NAME = "Charts"
+_CHART_RE = re.compile(r"\bchart[\s-]?hits?\b|\bcharts?\b", re.IGNORECASE)
+
+
+def looks_like_chart_hit(text):
+    """Erkennt Hinweise auf einen Chart-Hit im Album-Feld, z.B. "... Charts",
+    "Chart-Hit" oder "Chart Hits" - meist am Ende des Albumtitels."""
+    if not text:
+        return False
+    return _CHART_RE.search(text) is not None
+
+
+def is_pure_chart_label(text):
+    """True, wenn das Album-Feld NUR aus dem Chart-Hinweis besteht (z.B. nur
+    "Charts" oder "Chart-Hit"), ohne einen echten Albumtitel daneben."""
+    if not text:
+        return False
+    return _CHART_RE.fullmatch(text.strip()) is not None
+
+
+INSTRUMENTAL_MOOD_NAME = "Instrumental"
+# Kein \b am Ende, damit auch zusammengesetzte Woerter wie
+# "Instrumentalversion" oder "Instrumentalmix" erkannt werden.
+_INSTRUMENTAL_RE = re.compile(r"\binstrumental", re.IGNORECASE)
+
+
+def looks_like_instrumental(*texte):
+    """Erkennt Hinweise auf eine Instrumentalversion in einem oder mehreren
+    Texten (z.B. Titel, Album, Genre) - z.B. "Song (Instrumental)" oder
+    Genre "Instrumental"."""
+    for text in texte:
+        if text and _INSTRUMENTAL_RE.search(text):
+            return True
+    return False
+
+# Grobe Heuristik: Genre-Schlagwort (kleingeschrieben) -> passende Stimmung(en).
+# Kein Ersatz fuer echtes Zuhoeren, aber ein brauchbarer erster Vorschlag.
+GENRE_MOOD_MAP = {
+    "party": ["Party"],
+    "dance": ["Party"],
+    "disco": ["Party", "Freude"],
+    "electronic": ["Party", "Spannung"],
+    "edm": ["Party", "Spannung"],
+    "house": ["Party"],
+    "techno": ["Spannung"],
+    "pop": ["Freude"],
+    "rock": ["Spannung", "Motivation"],
+    "hard rock": ["Motivation", "Wut"],
+    "metal": ["Wut", "Spannung"],
+    "punk": ["Wut"],
+    "ballad": ["Liebeslieder", "Romantik"],
+    "ballade": ["Liebeslieder", "Romantik"],
+    "love": ["Liebeslieder", "Romantik"],
+    "romance": ["Romantik"],
+    "sad": ["Trauer", "Melancholie"],
+    "blues": ["Melancholie", "Trauer"],
+    "classical": ["Entspannung"],
+    "klassik": ["Entspannung"],
+    "ambient": ["Entspannung"],
+    "chill": ["Entspannung"],
+    "lounge": ["Entspannung"],
+    "jazz": ["Entspannung", "Romantik"],
+    "hip hop": ["Motivation", "Party"],
+    "hip-hop": ["Motivation", "Party"],
+    "rap": ["Motivation"],
+    "soundtrack": ["Drama", "Spannung"],
+    "score": ["Drama", "Spannung"],
+    "children": ["Freude"],
+    "kinder": ["Freude"],
+    "christmas": ["Freude", "Nostalgie"],
+    "weihnachten": ["Freude", "Nostalgie"],
+    "folk": ["Nostalgie"],
+    "volksmusik": ["Nostalgie"],
+    "reggae": ["Entspannung", "Freude"],
+    "gospel": ["Hoffnung"],
+}
+
+
+def suggest_moods_for_genre(genre_text):
+    """Liefert Stimmungs-Vorschlaege basierend auf einem Genre-Tag."""
+    if not genre_text:
+        return []
+    tokens = [t.strip().lower() for t in genre_text.replace("/", ",").replace(";", ",").split(",")]
+    tokens = [t for t in tokens if t]
+
+    vorschlaege = []
+    for token in tokens:
+        for keyword, moods in GENRE_MOOD_MAP.items():
+            if keyword in token:
+                for mood in moods:
+                    if mood not in vorschlaege:
+                        vorschlaege.append(mood)
+    return vorschlaege
+
+
+def get_known_moods(conn):
+    """Alle bereits bekannten Stimmungen: Vorschlagsliste + selbst angelegte."""
+    rows = conn.execute("SELECT name FROM moods").fetchall()
+    return set(SUGGESTED_MOODS) | {r["name"] for r in rows}
+
+
+def ensure_mood(conn, name):
+    conn.execute("INSERT OR IGNORE INTO moods (name) VALUES (?)", (name,))
+    return conn.execute("SELECT id FROM moods WHERE name = ?", (name,)).fetchone()["id"]
+
+
+def assign_mood(conn, song_id, mood_name):
+    mood_id = ensure_mood(conn, mood_name)
+    conn.execute(
+        "INSERT OR IGNORE INTO song_moods (song_id, mood_id) VALUES (?, ?)",
+        (song_id, mood_id),
+    )
+
+
+def looks_like_mood(text, known_moods):
+    """Erkennt, ob ein Text (typischerweise aus dem Album-Feld) eher eine
+    Stimmung als ein echter Albumtitel ist: kurz (max. 3 Woerter) und
+    enthaelt ein bekanntes Stimmungswort - z.B. "Spannung" oder
+    "leichte Spannung"."""
+    if not text:
+        return False
+    text = text.strip()
+    if not text:
+        return False
+    words = text.split()
+    if len(words) > 3:
+        return False
+    known_lower = {m.lower() for m in known_moods}
+    if text.lower() in known_lower:
+        return True
+    return any(w.lower() in known_lower for w in words)
+
+
+def fix_existing_album_moods(conn):
+    """Korrigiert bereits importierte Titel, bei denen eine Stimmung
+    faelschlich im Album-Feld gelandet ist: verschiebt den Text zu den
+    Stimmungen und leert das Album-Feld. Gibt die Liste der Aenderungen
+    zurueck [(song_id, titel, erkannte_stimmung), ...]."""
+    known_moods = get_known_moods(conn)
+    rows = conn.execute(
+        "SELECT id, title, album FROM songs WHERE album IS NOT NULL AND album != ''"
+    ).fetchall()
+
+    aenderungen = []
+    for row in rows:
+        if looks_like_mood(row["album"], known_moods):
+            mood_name = row["album"].strip()
+            assign_mood(conn, row["id"], mood_name)
+            conn.execute("UPDATE songs SET album = NULL WHERE id = ?", (row["id"],))
+            known_moods.add(mood_name)
+            aenderungen.append((row["id"], row["title"], mood_name))
+
+    return aenderungen
+
+
+def _tag_existing_by_detector(conn, detector, mood_name):
+    """Vergibt 'mood_name' nachtraeglich an alle Titel, bei denen 'detector'
+    (aufgerufen mit der DB-Zeile) True liefert und die Stimmung noch nicht
+    haben. Gibt die Liste der betroffenen Titel zurueck [(song_id, titel), ...]."""
+    rows = conn.execute("SELECT * FROM songs").fetchall()
+
+    betroffen = []
+    for row in rows:
+        if not detector(row):
+            continue
+        bereits_markiert = conn.execute(
+            """SELECT 1 FROM song_moods sm JOIN moods m ON m.id = sm.mood_id
+               WHERE sm.song_id = ? AND m.name = ?""",
+            (row["id"], mood_name),
+        ).fetchone()
+        if bereits_markiert:
+            continue
+        assign_mood(conn, row["id"], mood_name)
+        betroffen.append((row["id"], row["title"]))
+
+    return betroffen
+
+
+def tag_existing_chart_hits(conn):
+    """Vergibt die Stimmung "Charts" nachtraeglich an bereits importierte
+    Titel, deren Album-Feld einen Chart-Hinweis enthaelt (Album bleibt
+    dabei unveraendert). Gibt die Liste der betroffenen Titel zurueck
+    [(song_id, titel), ...]."""
+    return _tag_existing_by_detector(
+        conn, lambda row: bool(row["album"]) and looks_like_chart_hit(row["album"]), CHART_MOOD_NAME
+    )
+
+
+def tag_existing_instrumentals(conn):
+    """Vergibt die Stimmung "Instrumental" nachtraeglich an bereits
+    importierte Titel, bei denen Titel, Album oder Genre einen Hinweis auf
+    eine Instrumentalversion enthalten. Gibt die Liste der betroffenen
+    Titel zurueck [(song_id, titel), ...]."""
+    return _tag_existing_by_detector(
+        conn,
+        lambda row: looks_like_instrumental(row["title"], row["album"], row["genre"]),
+        INSTRUMENTAL_MOOD_NAME,
+    )
