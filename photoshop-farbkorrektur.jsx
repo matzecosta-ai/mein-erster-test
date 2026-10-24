@@ -26,11 +26,16 @@
 
         clipPercent: 0.2,              // % der dunkelsten/hellsten Pixel, die beschnitten werden
         maxBlackPoint: 30,             // Schwarzpunkt wird nie höher gesetzt als dies
-        minWhitePoint: 225,            // Weißpunkt wird nie niedriger gesetzt als dies
+        minWhitePoint: 140,            // Weißpunkt wird nie niedriger gesetzt als dies
+                                       // (dunkle Fotos werden bis dahin "aufgezogen")
 
-        targetBrightness: 122,         // Ziel-Mittelwert der Helligkeit (0-255)
-        brightnessStrength: 0.5,       // 0 = Helligkeit nicht anfassen, 1 = voll auf Zielwert
-        maxBrightnessGamma: 1.3        // Begrenzung der Helligkeitsanpassung
+        // Helligkeit pro Bild: der Median (Mitte der Tonwerte im Histogramm) wird
+        // auf den Zielwert gezogen. 118 entspricht einem Mittelgrau von 18 %,
+        // etwas darüber wirken Fotos meist freundlicher.
+        targetBrightness: 125,         // Zielwert für den Median (0-255)
+        brightnessStrength: 0.9,       // 0 = Helligkeit nicht anfassen, 1 = exakt auf Zielwert
+        maxBrighten: 2.2,              // max. Aufhellung der Mitteltöne (Gamma)
+        maxDarken: 1.3                 // max. Abdunklung der Mitteltöne (Gamma)
     };
 
     var EXTENSIONS = /\.(jpe?g|png|tiff?|psd|bmp|webp|heic|cr2|cr3|nef|arw|dng|raf|orf|rw2)$/i;
@@ -50,6 +55,19 @@
             count += hist[i];
         }
         return count > 0 ? sum / count : 127.5;
+    }
+
+    // Median der Histogramm-Stufen von lo bis hi
+    function histogramMedian(hist, lo, hi) {
+        var total = 0, i;
+        for (i = lo; i <= hi; i++) total += hist[i];
+        if (total === 0) return 127.5;
+        var running = 0;
+        for (i = lo; i <= hi; i++) {
+            running += hist[i];
+            if (running >= total / 2) return i;
+        }
+        return hi;
     }
 
     // Stufe, bei der die kumulierte Pixelmenge den Anteil "fraction" erreicht
@@ -78,9 +96,9 @@
         return Math.log(m) / Math.log(t);
     }
 
-    // Stärke anwenden und Gamma auf [1/max, max] begrenzen
-    function limitGamma(gamma, strength, max) {
-        return clamp(Math.pow(gamma, strength), 1 / max, max);
+    // Stärke anwenden und Gamma auf [1/maxDarken, maxBrighten] begrenzen
+    function limitGamma(gamma, strength, maxBrighten, maxDarken) {
+        return clamp(Math.pow(gamma, strength), 1 / maxDarken, maxBrighten);
     }
 
     // ---------------------------------------------------------------
@@ -110,7 +128,7 @@
         var target = sum / 3;
         for (i = 0; i < 3; i++) {
             var gamma = limitGamma(gammaToMove(means[i], target),
-                                   CONFIG.colorStrength, CONFIG.maxColorGamma);
+                                   CONFIG.colorStrength, CONFIG.maxColorGamma, CONFIG.maxColorGamma);
             if (Math.abs(gamma - 1) < 0.005) continue;
             doc.activeChannels = [channels[i]];
             doc.activeLayer.adjustLevels(0, 255, gamma, 0, 255);
@@ -130,11 +148,12 @@
         doc.activeLayer.adjustLevels(black, white, 1.0, 0, 255);
     }
 
-    // Mitteltöne sanft Richtung Zielhelligkeit schieben
+    // Helligkeit individuell: Median des Histogramms Richtung Zielwert schieben.
+    // Gamma lässt Schwarz- und Weißpunkt unverändert, hellt also auf, ohne Lichter auszubrennen.
     function balanceBrightness(doc) {
-        var mean = histogramMean(doc.histogram, 5, 250);
-        var gamma = limitGamma(gammaToMove(mean, CONFIG.targetBrightness),
-                               CONFIG.brightnessStrength, CONFIG.maxBrightnessGamma);
+        var median = histogramMedian(doc.histogram, 5, 250);
+        var gamma = limitGamma(gammaToMove(median, CONFIG.targetBrightness),
+                               CONFIG.brightnessStrength, CONFIG.maxBrighten, CONFIG.maxDarken);
         if (Math.abs(gamma - 1) < 0.005) return;
         doc.activeChannels = doc.componentChannels;
         doc.activeLayer.adjustLevels(0, 255, gamma, 0, 255);
