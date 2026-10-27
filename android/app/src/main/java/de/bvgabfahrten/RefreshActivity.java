@@ -33,7 +33,10 @@ public class RefreshActivity extends Activity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         lm = (LocationManager) getSystemService(LOCATION_SERVICE);
-        if (checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
+        List<Stop> selection = Cache.loadSelection(this);
+        if (!selection.isEmpty()) {
+            loadSelection(selection); // feste Haltestellen: kein Standort nötig
+        } else if (checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
             start();
         } else {
             requestPermissions(new String[]{
@@ -114,6 +117,20 @@ public class RefreshActivity extends Activity {
         return best;
     }
 
+    private void loadSelection(final List<Stop> selection) {
+        WidgetRenderer.updateAll(this, "Lade Abfahrten …");
+        final android.content.Context app = getApplicationContext();
+        new Thread(() -> {
+            try {
+                Cache.saveResult(app, null, BvgClient.fetchDepartures(selection));
+            } catch (Exception e) {
+                Cache.saveError(app, e.getMessage() != null ? e.getMessage() : "Fehler beim Laden");
+            }
+            WidgetRenderer.updateAll(app);
+            main.post(this::finishQuietly);
+        }).start();
+    }
+
     private void load(final Location loc) {
         if (finished) return;
         Toast.makeText(this, "Lade Abfahrten …", Toast.LENGTH_SHORT).show();
@@ -121,8 +138,8 @@ public class RefreshActivity extends Activity {
         final android.content.Context app = getApplicationContext();
         new Thread(() -> {
             try {
-                List<Departure> deps = BvgClient.fetch(loc.getLatitude(), loc.getLongitude());
-                Cache.saveDepartures(app, deps);
+                BvgClient.Result r = BvgClient.fetchNearby(loc.getLatitude(), loc.getLongitude());
+                Cache.saveResult(app, r.stops, r.departures);
             } catch (Exception e) {
                 Cache.saveError(app, e.getMessage() != null ? e.getMessage() : "Fehler beim Laden");
             }

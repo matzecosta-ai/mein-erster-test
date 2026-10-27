@@ -33,7 +33,8 @@ public class MainActivity extends Activity {
                 + "1. Lange auf eine freie Stelle des Startbildschirms tippen\n"
                 + "2. „Widgets“ wählen\n"
                 + "3. „Abfahrten“ suchen und auf den Startbildschirm ziehen\n\n"
-                + "Auf das Widget tippen (oder auf ⟳), um Standort und Abfahrten zu aktualisieren.");
+                + "Auf das Widget tippen (oder auf ⟳), um Standort und Abfahrten zu aktualisieren.\n\n"
+                + "Auf die Titelzeile des Widgets tippen, um nur bestimmte Haltestellen anzuzeigen.");
         help.setTextSize(16);
         help.setTextColor(Color.parseColor("#1B1B1B"));
         help.setPadding(0, pad, 0, pad);

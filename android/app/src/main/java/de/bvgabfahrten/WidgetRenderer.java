@@ -74,12 +74,28 @@ final class WidgetRenderer {
         }
         v.setTextViewText(R.id.status, status);
 
+        List<Stop> selection = Cache.loadSelection(ctx);
+        v.setTextViewText(R.id.title, selection.isEmpty() ? "Abfahrten in der Nähe ▾" : titleFor(selection));
+
         Intent i = new Intent(ctx, RefreshActivity.class);
         PendingIntent pi = PendingIntent.getActivity(ctx, 0, i,
                 PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
         v.setOnClickPendingIntent(R.id.root, pi);
         v.setOnClickPendingIntent(R.id.refresh, pi);
+
+        PendingIntent picker = PendingIntent.getActivity(ctx, 1, new Intent(ctx, StopPickerActivity.class),
+                PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+        v.setOnClickPendingIntent(R.id.title, picker);
         return v;
+    }
+
+    private static String titleFor(List<Stop> selection) {
+        StringBuilder sb = new StringBuilder();
+        for (Stop st : selection) {
+            if (sb.length() > 0) sb.append(" · ");
+            sb.append(st.name);
+        }
+        return sb.append(" ▾").toString();
     }
 
     private static String minutesText(Departure d, long now) {

@@ -23,39 +23,54 @@ import java.util.concurrent.Future;
 final class BvgClient {
     private static final String API = "https://v6.bvg.transport.rest";
     private static final int RADIUS_M = 500;
-    private static final int MAX_STOPS = 4;
+    private static final int MAX_STOPS = 6;
     private static final int WINDOW_MIN = 40;
 
     private BvgClient() {}
 
-    static List<Departure> fetch(double lat, double lon) throws Exception {
-        JSONArray near = getArray(API + "/locations/nearby?latitude=" + lat + "&longitude=" + lon
-                + "&distance=" + RADIUS_M + "&results=" + MAX_STOPS
-                + "&stops=true&poi=false&addresses=false");
+    static final class Result {
+        final List<Stop> stops;
+        final List<Departure> departures;
 
-        final List<String[]> stops = new ArrayList<>(); // {id, Name}
+        Result(List<Stop> stops, List<Departure> departures) {
+            this.stops = stops;
+            this.departures = departures;
+        }
+    }
+
+    /** Haltestellen im Umkreis des Standorts samt ihren Abfahrten. */
+    static Result fetchNearby(double lat, double lon) throws Exception {
+        JSONArray near = new JSONArray(get(API + "/locations/nearby?latitude=" + lat + "&longitude=" + lon
+                + "&distance=" + RADIUS_M + "&results=" + MAX_STOPS
+                + "&stops=true&poi=false&addresses=false"));
+
+        List<Stop> stops = new ArrayList<>();
         for (int i = 0; i < near.length(); i++) {
             JSONObject s = near.getJSONObject(i);
             if ("stop".equals(s.optString("type"))) {
-                stops.add(new String[]{s.getString("id"), shortName(s.optString("name"))});
+                stops.add(new Stop(s.getString("id"), shortName(s.optString("name")), s.optInt("distance")));
             }
         }
         if (stops.isEmpty()) throw new Exception("Keine Haltestelle im Umkreis von " + RADIUS_M + " m");
+        return new Result(stops, fetchDepartures(stops));
+    }
 
+    /** Abfahrten für fest ausgewählte Haltestellen, unabhängig vom Standort. */
+    static List<Departure> fetchDepartures(List<Stop> stops) throws Exception {
         ExecutorService pool = Executors.newFixedThreadPool(stops.size());
         try {
             List<Future<JSONArray>> futures = new ArrayList<>();
-            for (final String[] s : stops) {
+            for (final Stop s : stops) {
                 futures.add(pool.submit(new Callable<JSONArray>() {
                     @Override public JSONArray call() throws Exception {
-                        JSONObject r = getObject(API + "/stops/" + s[0] + "/departures?duration=" + WINDOW_MIN
-                                + "&linesOfStops=false&remarks=false");
+                        JSONObject r = new JSONObject(get(API + "/stops/" + s.id + "/departures?duration="
+                                + WINDOW_MIN + "&linesOfStops=false&remarks=false"));
                         return r.getJSONArray("departures");
                     }
                 }));
             }
             // Nahe Haltestellen liefern oft dieselben Fahrten: jede Fahrt nur einmal,
-            // bei der nächstgelegenen Haltestelle.
+            // bei der zuerst genannten Haltestelle.
             Set<String> seen = new HashSet<>();
             List<Departure> result = new ArrayList<>();
             SimpleDateFormat iso = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ssXXX", Locale.GERMANY);
@@ -72,7 +87,7 @@ final class BvgClient {
                             line != null ? line.optString("name", "?") : "?",
                             line != null ? line.optString("product", "") : "",
                             d.optString("direction"),
-                            stops.get(i)[1],
+                            stops.get(i).name,
                             iso.parse(when).getTime(),
                             delay,
                             d.optBoolean("cancelled") || d.isNull("when")));
@@ -87,14 +102,6 @@ final class BvgClient {
 
     private static String shortName(String name) {
         return name.replace(" (Berlin)", "").replaceFirst("^S\\+U ", "");
-    }
-
-    private static JSONArray getArray(String url) throws Exception {
-        return new JSONArray(get(url));
-    }
-
-    private static JSONObject getObject(String url) throws Exception {
-        return new JSONObject(get(url));
     }
 
     private static String get(String url) throws Exception {
