@@ -7,13 +7,16 @@ import org.json.JSONArray;
 import org.json.JSONObject;
 
 import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Set;
 
 /** Letzter Abruf und gewählte Haltestellen, damit das Widget auch ohne neue Abfrage etwas anzeigt. */
 final class Cache {
     private static final String PREFS = "cache";
     private static final String KEY = "last";
     private static final String KEY_SELECTION = "selection";
+    private static final String KEY_FILTER = "filter";
 
     static final class State {
         long updatedAt;
@@ -84,6 +87,21 @@ final class Cache {
             prefs(ctx).edit().putString(KEY_SELECTION, a.toString()).apply();
         } catch (Exception ignored) {
         }
+    }
+
+    /** Gewählte "Linie|Richtung"-Kombinationen; leer = alles zeigen. */
+    static Set<String> loadFilter(Context ctx) {
+        Set<String> result = new LinkedHashSet<>();
+        try {
+            JSONArray a = new JSONArray(prefs(ctx).getString(KEY_FILTER, "[]"));
+            for (int i = 0; i < a.length(); i++) result.add(a.getString(i));
+        } catch (Exception ignored) {
+        }
+        return result;
+    }
+
+    static void saveFilter(Context ctx, Set<String> filter) {
+        prefs(ctx).edit().putString(KEY_FILTER, new JSONArray(filter).toString()).apply();
     }
 
     private static void put(Context ctx, JSONObject o) {
