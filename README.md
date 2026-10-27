@@ -1,1 +1,16 @@
 # mein-erster-test
+
+BVG-Abfahrten in meiner Nähe, per GPS.
+
+- **Web-App** (`index.html`, `manifest.webmanifest`, `sw.js`, `icons/`): läuft im Browser, installierbar als PWA.
+- **Android-Widget** (`android/`): echte App mit Startbildschirm-Widget. Tippen auf das Widget holt Standort und Abfahrten.
+
+APK bauen (JDK 17+ und Android SDK nötig):
+
+```
+cd android
+./gradlew assembleDebug
+# -> app/build/outputs/apk/debug/app-debug.apk
+```
+
+Daten: [v6.bvg.transport.rest](https://v6.bvg.transport.rest)
