@@ -24,6 +24,11 @@ final class Departure {
         this.cancelled = cancelled;
     }
 
+    /** Schlüssel für den Linien-/Richtungsfilter. */
+    String filterKey() {
+        return line + "|" + direction;
+    }
+
     JSONObject toJson() throws JSONException {
         return new JSONObject()
                 .put("line", line).put("product", product).put("direction", direction)

@@ -24,7 +24,7 @@ final class BvgClient {
     private static final String API = "https://v6.bvg.transport.rest";
     private static final int RADIUS_M = 500;
     private static final int MAX_STOPS = 6;
-    private static final int WINDOW_MIN = 40;
+    private static final int WINDOW_MIN = 60;
 
     private BvgClient() {}
 
@@ -86,7 +86,7 @@ final class BvgClient {
                     result.add(new Departure(
                             line != null ? line.optString("name", "?") : "?",
                             line != null ? line.optString("product", "") : "",
-                            d.optString("direction"),
+                            shortName(d.optString("direction")),
                             stops.get(i).name,
                             iso.parse(when).getTime(),
                             delay,

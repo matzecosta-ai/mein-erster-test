@@ -10,6 +10,7 @@ import android.widget.RemoteViews;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.List;
+import java.util.Set;
 import java.util.Locale;
 
 /** Baut die Widget-Ansicht aus dem zuletzt gespeicherten Stand. */
@@ -46,10 +47,12 @@ final class WidgetRenderer {
         Cache.State s = Cache.load(ctx);
 
         long now = System.currentTimeMillis();
+        Set<String> filter = Cache.loadFilter(ctx);
         int shown = 0;
         for (Departure d : s.departures) {
             if (shown == ROWS.length) break;
             if (d.whenMillis < now - 30_000) continue; // schon abgefahren
+            if (!filter.isEmpty() && !filter.contains(d.filterKey())) continue;
             int[] r = ROWS[shown++];
             v.setViewVisibility(r[0], android.view.View.VISIBLE);
             v.setTextViewText(r[1], d.line);
@@ -70,6 +73,7 @@ final class WidgetRenderer {
             status = "Zum Laden tippen";
         } else {
             status = "Stand " + new SimpleDateFormat("HH:mm", Locale.GERMANY).format(new Date(s.updatedAt))
+                    + (filter.isEmpty() ? "" : " · Filter aktiv")
                     + (shown == 0 ? " · keine Abfahrten" : "");
         }
         v.setTextViewText(R.id.status, status);
@@ -83,7 +87,7 @@ final class WidgetRenderer {
         v.setOnClickPendingIntent(R.id.root, pi);
         v.setOnClickPendingIntent(R.id.refresh, pi);
 
-        PendingIntent picker = PendingIntent.getActivity(ctx, 1, new Intent(ctx, StopPickerActivity.class),
+        PendingIntent picker = PendingIntent.getActivity(ctx, 1, new Intent(ctx, SettingsActivity.class),
                 PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
         v.setOnClickPendingIntent(R.id.title, picker);
         return v;
