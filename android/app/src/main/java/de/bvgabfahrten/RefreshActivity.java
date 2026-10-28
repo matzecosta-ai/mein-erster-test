@@ -21,6 +21,7 @@ import java.util.List;
  * Abfahrten laden, Widget aktualisieren, wieder schließen.
  */
 public class RefreshActivity extends Activity {
+    static final String EXTRA_RESET = "reset";
     private static final int REQ_LOCATION = 1;
     private static final long[] TIMEOUTS_MS = {8000, 15000}; // Netzwerk-Standort, dann GPS
 
@@ -33,6 +34,10 @@ public class RefreshActivity extends Activity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         lm = (LocationManager) getSystemService(LOCATION_SERVICE);
+        if (getIntent().getBooleanExtra(EXTRA_RESET, false)) {
+            Cache.clearSettings(this);
+            Toast.makeText(this, "Auswahl zurückgesetzt", Toast.LENGTH_SHORT).show();
+        }
         List<Stop> selection = Cache.loadSelection(this);
         if (!selection.isEmpty() && Cache.loadDestination(this) == null) {
             loadSelection(selection); // feste Haltestellen: kein Standort nötig

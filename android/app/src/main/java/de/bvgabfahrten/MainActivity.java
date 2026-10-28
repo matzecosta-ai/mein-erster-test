@@ -8,6 +8,7 @@ import android.view.Gravity;
 import android.widget.Button;
 import android.widget.LinearLayout;
 import android.widget.TextView;
+import android.widget.Toast;
 
 /** Startseite der App: kurze Anleitung und Knopf zum Standort-Erlauben. */
 public class MainActivity extends Activity {
@@ -34,7 +35,7 @@ public class MainActivity extends Activity {
                 + "2. „Widgets“ wählen\n"
                 + "3. „Abfahrten“ suchen und auf den Startbildschirm ziehen\n\n"
                 + "Auf das Widget tippen (oder auf ⟳), um Standort und Abfahrten zu aktualisieren.\n\n"
-                + "Auf die Titelzeile des Widgets tippen, um Haltestellen, Linien und Richtungen auszuwählen oder ein Ziel einzugeben (Verbindung vom aktuellen Standort). Bei einem Ziel zeigt ein Tipp auf eine Verbindung den ganzen Verlauf mit Umstiegen.");
+                + "Das ✕ im Widget setzt alle Auswahlen auf einmal zurück.\n\nAuf die Titelzeile des Widgets tippen, um Haltestellen, Linien und Richtungen auszuwählen oder ein Ziel einzugeben (Verbindung vom aktuellen Standort). Bei einem Ziel zeigt ein Tipp auf eine Verbindung den ganzen Verlauf mit Umstiegen.");
         help.setTextSize(16);
         help.setTextColor(Color.parseColor("#1B1B1B"));
         help.setPadding(0, pad, 0, pad);
@@ -44,6 +45,15 @@ public class MainActivity extends Activity {
         go.setText("Standort erlauben & jetzt laden");
         go.setOnClickListener(v -> startActivity(new Intent(this, RefreshActivity.class)));
         root.addView(go);
+
+        Button reset = new Button(this);
+        reset.setText("Alle Auswahlen zurücksetzen");
+        reset.setOnClickListener(v -> {
+            Cache.clearSettings(this);
+            WidgetRenderer.updateAll(this);
+            Toast.makeText(this, "Haltestellen, Filter und Ziel zurückgesetzt", Toast.LENGTH_SHORT).show();
+        });
+        root.addView(reset);
 
         setContentView(root);
     }

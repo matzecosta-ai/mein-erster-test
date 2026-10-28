@@ -136,6 +136,15 @@ final class WidgetRenderer {
         PendingIntent picker = PendingIntent.getActivity(ctx, 1, new Intent(ctx, SettingsActivity.class),
                 PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
         v.setOnClickPendingIntent(R.id.title, picker);
+
+        // ✕ nur zeigen, wenn etwas ausgewählt ist; Tipp setzt alles zurück und lädt neu.
+        boolean active = Cache.hasActiveSettings(ctx);
+        v.setViewVisibility(R.id.reset, active ? android.view.View.VISIBLE : android.view.View.GONE);
+        if (active) {
+            Intent reset = new Intent(ctx, RefreshActivity.class).putExtra(RefreshActivity.EXTRA_RESET, true);
+            v.setOnClickPendingIntent(R.id.reset, PendingIntent.getActivity(ctx, 2, reset,
+                    PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE));
+        }
     }
 
     private static String titleFor(List<Stop> selection) {

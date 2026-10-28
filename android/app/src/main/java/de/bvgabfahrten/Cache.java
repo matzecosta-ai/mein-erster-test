@@ -139,6 +139,16 @@ final class Cache {
         prefs(ctx).edit().putString(KEY_FILTER, new JSONArray(filter).toString()).apply();
     }
 
+    /** Ist etwas ausgewählt (Haltestellen, Filter oder Ziel)? */
+    static boolean hasActiveSettings(Context ctx) {
+        return !loadSelection(ctx).isEmpty() || !loadFilter(ctx).isEmpty() || loadDestination(ctx) != null;
+    }
+
+    /** Alles abwählen: Haltestellen, Linien-/Richtungsfilter und Ziel. */
+    static void clearSettings(Context ctx) {
+        prefs(ctx).edit().remove(KEY_SELECTION).remove(KEY_FILTER).remove(KEY_DESTINATION).apply();
+    }
+
     private static void put(Context ctx, JSONObject o) {
         prefs(ctx).edit().putString(KEY, o.toString()).apply();
     }
