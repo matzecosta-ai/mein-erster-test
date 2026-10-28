@@ -26,6 +26,18 @@
             android:textStyle="bold" />
 
         <TextView
+            android:id="@+id/reset"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:contentDescription="Auswahl zurücksetzen"
+            android:paddingStart="12dp"
+            android:paddingEnd="2dp"
+            android:text="✕"
+            android:textColor="#F0D722"
+            android:textSize="22sp"
+            android:visibility="gone" />
+
+        <TextView
             android:id="@+id/refresh"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"

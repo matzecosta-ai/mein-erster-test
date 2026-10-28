@@ -91,6 +91,80 @@ function visibleDepartures(deps, filter, now) {
   return deps.filter(d => d.when >= now - 30000 && (set.size === 0 || set.has(filterKey(d))));
 }
 
+async function searchStops(query) {
+  const arr = await getJson(`${API}/locations?query=${encodeURIComponent(query)}` +
+    `&results=6&stops=true&addresses=false&poi=false`);
+  return (Array.isArray(arr) ? arr : []).filter(s => s.type === "stop")
+    .map(s => ({ id: s.id, name: shortName(s.name), distance: 0 }));
+}
+
+// Nächste Verbindungen vom Standort (inkl. Fußweg) zur Zielhaltestelle; nur BVG-Verkehrsmittel.
+async function fetchJourneys(lat, lon, destId) {
+  const r = await getJson(`${API}/journeys?from.latitude=${lat}&from.longitude=${lon}` +
+    `&from.address=${encodeURIComponent("Mein Standort")}&to=${destId}` +
+    `&results=5&stopovers=false&remarks=false` +
+    `&suburban=true&subway=true&tram=true&bus=true&ferry=true&express=false&regional=false`);
+  const result = [];
+  for (const j of (r.journeys || [])) {
+    const transit = j.legs.filter(l => l.line);
+    if (!transit.length) continue; // reiner Fußweg
+    const first = transit[0], last = j.legs[j.legs.length - 1];
+    const dep = first.departure || first.plannedDeparture;
+    const arr = last.arrival || last.plannedArrival;
+    result.push({
+      legs: j.legs.map(parseLeg),
+      firstLine: first.line.name || "?",
+      product: first.line.product || "",
+      lines: transit.map(t => t.line.name || "?").join(" → "),
+      originStop: first.origin ? shortName(first.origin.name) : "",
+      depart: new Date(dep).getTime(),
+      arrive: new Date(arr).getTime(),
+      transfers: transit.length - 1,
+      delayMin: first.departureDelay == null ? 0 : Math.round(first.departureDelay / 60),
+      cancelled: transit.some(t => t.cancelled),
+    });
+  }
+  return result;
+}
+
+function placeName(place, fallback) {
+  return place && place.type === "stop" ? shortName(place.name) : fallback;
+}
+
+// Ein Abschnitt: Fußweg (line == null) oder Fahrt.
+function parseLeg(l) {
+  const dep = l.departure || l.plannedDeparture, arr = l.arrival || l.plannedArrival;
+  return {
+    line: l.line ? l.line.name || "?" : null,
+    product: l.line ? l.line.product || "" : "",
+    direction: shortName(l.direction),
+    from: placeName(l.origin, "Mein Standort"),
+    to: placeName(l.destination, "Ziel"),
+    depart: new Date(dep).getTime(),
+    arrive: new Date(arr).getTime(),
+    depDelay: l.departureDelay == null ? 0 : Math.round(l.departureDelay / 60),
+    arrDelay: l.arrivalDelay == null ? 0 : Math.round(l.arrivalDelay / 60),
+    depPlatform: l.departurePlatform || "",
+    arrPlatform: l.arrivalPlatform || "",
+    distance: l.distance || 0,
+    cancelled: !!l.cancelled,
+  };
+}
+
+function timeText(ms) {
+  return new Date(ms).toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" });
+}
+
+function journeyMinutesText(j, now) {
+  if (j.cancelled) return "entfällt";
+  const min = Math.max(0, Math.round((j.depart - now) / 60000));
+  return min === 0 ? "jetzt" : `${min} min`;
+}
+
+function visibleJourneys(journeys, now) {
+  return journeys.filter(j => j.depart >= now - 30000);
+}
+
 function minutesText(dep, now) {
   if (dep.cancelled) return "entfällt";
   const min = Math.max(0, Math.round((dep.when - now) / 60000));
@@ -107,7 +181,7 @@ function settingsPath(profile) {
 function loadSettings(profile) {
   const fm = FileManager.local();
   const p = settingsPath(profile);
-  const def = { stops: [], filter: [], lastLocation: null };
+  const def = { stops: [], filter: [], lastLocation: null, destination: null };
   if (!fm.fileExists(p)) return def;
   try { return Object.assign(def, JSON.parse(fm.readString(p))); } catch (e) { return def; }
 }
@@ -132,6 +206,12 @@ async function getLocation(settings) {
 
 async function loadData(profile) {
   const settings = loadSettings(profile);
+  if (settings.destination) { // Verbindungsmodus: Start ist immer der Standort
+    const loc = await getLocation(settings);
+    const journeys = await fetchJourneys(loc.latitude, loc.longitude, settings.destination.id);
+    saveSettings(profile, settings);
+    return { settings, stops: [], nearby: [], departures: [], journeys, updatedAt: Date.now() };
+  }
   let stops, nearby = [];
   if (settings.stops.length) {
     stops = settings.stops;
@@ -145,7 +225,7 @@ async function loadData(profile) {
   }
   const departures = await fetchDepartures(stops);
   saveSettings(profile, settings);
-  return { settings, stops, nearby, departures, updatedAt: Date.now() };
+  return { settings, stops, nearby, departures, journeys: [], updatedAt: Date.now() };
 }
 
 // ---------- Widget ----------
@@ -192,6 +272,45 @@ function addRow(widget, dep, now, family) {
   min.rightAlignText();
 }
 
+function addJourneyRow(widget, j, now, family) {
+  const row = widget.addStack();
+  row.layoutHorizontally();
+  row.centerAlignContent();
+  row.spacing = 8;
+
+  const badge = row.addStack();
+  badge.backgroundColor = new Color(BADGE_COLORS[j.product] || "#666666");
+  badge.cornerRadius = 5;
+  badge.size = new Size(42, 20);
+  badge.centerAlignContent();
+  const line = badge.addText(j.firstLine);
+  line.font = Font.boldSystemFont(12);
+  line.textColor = Color.white();
+  line.lineLimit = 1;
+  line.minimumScaleFactor = 0.7;
+
+  const info = row.addStack();
+  info.layoutVertically();
+  const lines = info.addText(j.lines + (j.transfers ? ` · ${j.transfers} Umst.` : ""));
+  lines.font = Font.systemFont(13);
+  lines.textColor = Color.white();
+  lines.lineLimit = 1;
+  if (family !== "small") {
+    const dur = Math.max(1, Math.round((j.arrive - j.depart) / 60000));
+    const sub = info.addText(`ab ${j.originStop} · an ${timeText(j.arrive)} (${dur} min)`);
+    sub.font = Font.systemFont(10);
+    sub.textColor = new Color("#9a9a94");
+    sub.lineLimit = 1;
+  }
+
+  row.addSpacer();
+  const min = row.addText(journeyMinutesText(j, now));
+  min.font = Font.boldSystemFont(14);
+  min.textColor = j.cancelled ? new Color("#9a9a94")
+    : j.delayMin >= 3 ? new Color("#ff6b6b") : Color.white();
+  min.rightAlignText();
+}
+
 function buildWidget(data, family, error) {
   const now = Date.now();
   const w = new ListWidget();
@@ -199,7 +318,8 @@ function buildWidget(data, family, error) {
   w.setPadding(10, 12, 8, 12);
   w.refreshAfterDate = new Date(now + REFRESH_MIN * 60000);
 
-  const title = w.addText(data && data.settings.stops.length
+  const dest = data && data.settings.destination;
+  const title = w.addText(dest ? `→ ${dest.name}` : data && data.settings.stops.length
     ? data.stops.map(s => s.name).join(" · ") : "Abfahrten in der Nähe");
   title.font = Font.boldSystemFont(13);
   title.textColor = new Color("#f0d722");
@@ -210,6 +330,24 @@ function buildWidget(data, family, error) {
     const t = w.addText(error);
     t.font = Font.systemFont(12);
     t.textColor = new Color("#ff6b6b");
+    return w;
+  }
+
+  if (dest) {
+    const js = visibleJourneys(data.journeys, now).slice(0, rowCount(family));
+    js.forEach((j, i) => {
+      if (i > 0) w.addSpacer(family === "small" ? 4 : 6);
+      addJourneyRow(w, j, now, family);
+    });
+    if (!js.length) {
+      const t = w.addText("Keine Verbindung gefunden");
+      t.font = Font.systemFont(12);
+      t.textColor = new Color("#9a9a94");
+    }
+    w.addSpacer();
+    const st = w.addText(`Stand ${timeText(data.updatedAt)}`);
+    st.font = Font.systemFont(10);
+    st.textColor = new Color("#9a9a94");
     return w;
   }
 
@@ -288,10 +426,112 @@ async function chooseFilter(profile, data) {
   saveSettings(profile, data.settings);
 }
 
+function hasActiveSettings(settings) {
+  return settings.stops.length > 0 || settings.filter.length > 0 || !!settings.destination;
+}
+
+function clearSettings(profile, settings) {
+  settings.stops = [];
+  settings.filter = [];
+  settings.destination = null;
+  saveSettings(profile, settings);
+}
+
+// Umstieg zwischen zwei Fahrten, optional mit Fußweg dazwischen.
+function transferText(prev, walk, next) {
+  const wait = Math.max(0, Math.round((next.depart - prev.arrive) / 60000));
+  return `↻  Umsteigen in ${prev.to}` +
+    (walk && walk.distance > 0 ? ` · Fußweg ${walk.distance} m` : "") +
+    ` · ${wait} min Zeit` +
+    (next.depPlatform ? ` · weiter ab Gleis ${next.depPlatform}` : "");
+}
+
+// Ganzer Verlauf einer Verbindung: Fußwege, Fahrten mit Gleis und Zeit, Umstiege.
+async function showJourneyDetail(j, dest) {
+  const table = new UITable();
+  table.showSeparators = true;
+  const dur = Math.max(1, Math.round((j.arrive - j.depart) / 60000));
+  const head = new UITableRow();
+  head.isHeader = true;
+  head.addText(`→ ${dest ? dest.name : "Ziel"}`,
+    `Abfahrt ${timeText(j.depart)} · Ankunft ${timeText(j.arrive)} · ${dur} min · ` +
+    (j.transfers === 0 ? "ohne Umstieg" : j.transfers === 1 ? "1 Umstieg" : `${j.transfers} Umstiege`));
+  table.addRow(head);
+
+  const legs = j.legs || [];
+  const note = (text, highlight) => {
+    const row = new UITableRow();
+    const c = row.addText(text);
+    if (highlight) { row.backgroundColor = new Color("#FFF3B0"); c.titleColor = Color.black(); }
+    table.addRow(row);
+  };
+  const stop = (ms, delay, name, platform) => {
+    const row = new UITableRow();
+    const t = row.addText(timeText(ms) + (delay >= 1 ? ` +${delay}` : ""));
+    t.widthWeight = 25;
+    if (delay >= 3) t.titleColor = new Color("#c62828");
+    row.addText(name + (platform ? `  ·  Gleis ${platform}` : "")).widthWeight = 75;
+    table.addRow(row);
+  };
+
+  legs.forEach((leg, i) => {
+    if (!leg.line) { // Fußweg
+      const middle = i > 0 && i < legs.length - 1;
+      if (middle) { note(transferText(legs[i - 1], leg, legs[i + 1]), true); return; }
+      const min = Math.max(1, Math.round((leg.arrive - leg.depart) / 60000));
+      note(`🚶  ${i === 0 ? "Fußweg zur Haltestelle" : "Fußweg zum Ziel"} · ${leg.distance} m · ca. ${min} min`, false);
+      return;
+    }
+    if (i > 0 && legs[i - 1].line) note(transferText(legs[i - 1], null, leg), true); // Umstieg ohne Fußweg
+    stop(leg.depart, leg.depDelay, leg.from, leg.depPlatform);
+    const ride = new UITableRow();
+    const m = Math.max(1, Math.round((leg.arrive - leg.depart) / 60000));
+    ride.addText(`${leg.line}  →  ${leg.direction}`, `${m} min Fahrt${leg.cancelled ? " · entfällt" : ""}`);
+    ride.backgroundColor = new Color(BADGE_COLORS[leg.product] || "#666666", 0.25);
+    table.addRow(ride);
+    stop(leg.arrive, leg.arrDelay, leg.to, leg.arrPlatform);
+  });
+  await table.present();
+}
+
+async function chooseDestination(profile, data) {
+  const input = new Alert();
+  input.title = "Wohin willst du fahren?";
+  input.message = "Start ist dein aktueller Standort.";
+  input.addTextField("z. B. Hermannstr.", "");
+  input.addAction("Suchen");
+  input.addCancelAction("Abbrechen");
+  if ((await input.presentAlert()) === -1) return;
+  const query = input.textFieldValue(0).trim();
+  if (!query) return;
+
+  let found;
+  try { found = await searchStops(query); } catch (e) { found = null; }
+  const res = new Alert();
+  if (!found || !found.length) {
+    res.title = found ? "Nichts gefunden" : "Suche fehlgeschlagen";
+    res.message = found ? `Keine Haltestelle zu „${query}“.` : "Bitte später nochmal versuchen.";
+    res.addCancelAction("OK");
+    await res.presentAlert();
+    return;
+  }
+  res.title = "Ziel wählen";
+  found.forEach(s => res.addAction(s.name));
+  res.addCancelAction("Abbrechen");
+  const idx = await res.presentAlert();
+  if (idx === -1) return;
+  data.settings.destination = found[idx];
+  saveSettings(profile, data.settings);
+}
+
 async function showInApp(profile) {
+  let cached = null; // nach der Detailansicht ohne neuen Abruf zurück zur Liste
   while (true) {
     let data;
-    try {
+    if (cached) {
+      data = cached;
+      cached = null;
+    } else try {
       data = await loadData(profile);
     } catch (e) {
       const a = new Alert();
@@ -310,20 +550,53 @@ async function showInApp(profile) {
 
     const head = new UITableRow();
     head.isHeader = true;
-    head.addText(data.settings.stops.length ? data.stops.map(s => s.name).join(" · ") : "Abfahrten in der Nähe",
+    const dest = data.settings.destination;
+    head.addText(dest ? `→ ${dest.name}` : data.settings.stops.length ? data.stops.map(s => s.name).join(" · ") : "Abfahrten in der Nähe",
       `Profil „${profile}“ · Stand ${new Date(data.updatedAt).toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" })}`);
     table.addRow(head);
 
-    let action = null;
+    let action = null, picked = null;
     const add = (text, name) => {
       const row = new UITableRow();
       row.addText(text);
       row.onSelect = () => { action = name; };
       table.addRow(row);
     };
-    add("⚙  Haltestellen wählen" + (data.settings.stops.length ? ` (${data.settings.stops.length})` : ""), "stops");
-    add("⚙  Linien & Richtungen filtern" + (data.settings.filter.length ? ` (${data.settings.filter.length})` : ""), "filter");
+    if (hasActiveSettings(data.settings)) add("✕  Alles zurücksetzen (Haltestellen, Filter, Ziel)", "reset");
+    add(dest ? `⚙  Ziel ändern: ${dest.name}` : "⚙  Ziel eingeben (Verbindung)", "destination");
+    if (dest) add("✕  Kein Ziel (zurück zu Abfahrten)", "nodestination");
+    if (!dest) {
+      add("⚙  Haltestellen wählen" + (data.settings.stops.length ? ` (${data.settings.stops.length})` : ""), "stops");
+      add("⚙  Linien & Richtungen filtern" + (data.settings.filter.length ? ` (${data.settings.filter.length})` : ""), "filter");
+    }
     add("⟳  Aktualisieren", "reload");
+
+    if (dest) {
+      const js = visibleJourneys(data.journeys, now);
+      for (const j of js) {
+        const row = new UITableRow();
+        row.onSelect = () => { action = "detail"; picked = j; };
+        const dur = Math.max(1, Math.round((j.arrive - j.depart) / 60000));
+        row.addText(`${j.lines}${j.transfers ? ` · ${j.transfers} Umst.` : ""}`,
+          `ab ${j.originStop} · an ${timeText(j.arrive)} (${dur} min)`).widthWeight = 80;
+        const m = row.addText(journeyMinutesText(j, now), j.delayMin >= 1 && !j.cancelled ? `+${j.delayMin}` : "");
+        m.widthWeight = 20;
+        m.rightAligned();
+        table.addRow(row);
+      }
+      if (!js.length) {
+        const row = new UITableRow();
+        row.addText("Keine Verbindung gefunden");
+        table.addRow(row);
+      }
+      await table.present();
+      if (action === "detail") { await showJourneyDetail(picked, dest); cached = data; }
+      else if (action === "reset") clearSettings(profile, data.settings);
+      else if (action === "destination") await chooseDestination(profile, data);
+      else if (action === "nodestination") { data.settings.destination = null; saveSettings(profile, data.settings); }
+      else if (action !== "reload") return; // Tabelle wurde geschlossen
+      continue;
+    }
 
     for (const d of list.slice(0, 40)) {
       const row = new UITableRow();
@@ -340,7 +613,9 @@ async function showInApp(profile) {
     }
 
     await table.present();
-    if (action === "stops") await chooseStops(profile, data);
+    if (action === "reset") clearSettings(profile, data.settings);
+    else if (action === "destination") await chooseDestination(profile, data);
+    else if (action === "stops") await chooseStops(profile, data);
     else if (action === "filter") await chooseFilter(profile, data);
     else if (action !== "reload") return; // Tabelle wurde geschlossen
   }
@@ -370,6 +645,6 @@ if (typeof __BVG_TEST__ === "undefined") {
 } else {
   module.exports = {
     shortName, filterKey, compareLines, compareKeys, fetchNearby, fetchDepartures,
-    visibleDepartures, minutesText, loadData, buildWidget, main, showInApp,
+    visibleDepartures, minutesText, loadData, buildWidget, main, showInApp, searchStops, fetchJourneys, showJourneyDetail, clearSettings, hasActiveSettings,
   };
 }

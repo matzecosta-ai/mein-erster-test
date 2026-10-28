@@ -4,6 +4,10 @@ import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.Intent;
 import android.os.Bundle;
+import android.view.WindowManager;
+import android.widget.EditText;
+import android.widget.FrameLayout;
+import android.widget.Toast;
 
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -27,16 +31,19 @@ public class SettingsActivity extends Activity {
     private void showMenu() {
         Set<String> filter = Cache.loadFilter(this);
         List<Stop> selection = Cache.loadSelection(this);
+        Stop dest = Cache.loadDestination(this);
         String[] items = {
                 selection.isEmpty() ? "Haltestellen wählen" : "Haltestellen wählen (" + selection.size() + " gewählt)",
                 filter.isEmpty() ? "Linien & Richtungen filtern" : "Linien & Richtungen filtern (" + filter.size() + " gewählt)",
+                dest == null ? "Ziel eingeben (Verbindung)" : "Ziel ändern: " + dest.name,
         };
         show(new AlertDialog.Builder(this)
                 .setTitle("Widget einstellen")
                 .setItems(items, (d, which) -> {
                     navigating = true;
                     if (which == 0) showStops();
-                    else showFilter();
+                    else if (which == 1) showFilter();
+                    else showDestinationInput();
                 })
                 .setNegativeButton("Abbrechen", null));
     }
@@ -127,6 +134,72 @@ public class SettingsActivity extends Activity {
                 .setNegativeButton("Abbrechen", null));
     }
 
+    /** Ziel eintippen, dann aus den Suchergebnissen wählen. Start ist immer der aktuelle Standort. */
+    private void showDestinationInput() {
+        final EditText input = new EditText(this);
+        input.setSingleLine(true);
+        input.setHint("z. B. Hermannstr.");
+        int pad = (int) (20 * getResources().getDisplayMetrics().density);
+        FrameLayout box = new FrameLayout(this);
+        box.setPadding(pad, pad / 2, pad, 0);
+        box.addView(input);
+
+        final Stop current = Cache.loadDestination(this);
+        AlertDialog.Builder b = new AlertDialog.Builder(this)
+                .setTitle("Wohin willst du fahren?")
+                .setMessage("Start ist dein aktueller Standort.")
+                .setView(box)
+                .setPositiveButton("Suchen", (d, w) -> {
+                    navigating = true;
+                    search(input.getText().toString().trim());
+                })
+                .setNegativeButton("Abbrechen", null);
+        if (current != null) {
+            b.setNeutralButton("Kein Ziel", (d, w) -> {
+                Cache.saveDestination(this, null);
+                refresh(); // zurück zur Abfahrtsliste
+            });
+        }
+        AlertDialog dialog = show(b);
+        dialog.getWindow().setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_STATE_VISIBLE);
+    }
+
+    private void search(final String query) {
+        if (query.isEmpty()) {
+            showDestinationInput();
+            return;
+        }
+        Toast.makeText(this, "Suche …", Toast.LENGTH_SHORT).show();
+        new Thread(() -> {
+            List<Stop> found;
+            try {
+                found = BvgClient.searchStops(query);
+            } catch (Exception e) {
+                found = null;
+            }
+            final List<Stop> result = found;
+            runOnUiThread(() -> showSearchResults(query, result));
+        }).start();
+    }
+
+    private void showSearchResults(String query, final List<Stop> results) {
+        if (results == null || results.isEmpty()) {
+            Toast.makeText(this, results == null ? "Suche fehlgeschlagen" : "Keine Haltestelle zu „" + query + "“ gefunden",
+                    Toast.LENGTH_LONG).show();
+            showDestinationInput();
+            return;
+        }
+        String[] labels = new String[results.size()];
+        for (int i = 0; i < labels.length; i++) labels[i] = results.get(i).name;
+        show(new AlertDialog.Builder(this)
+                .setTitle("Ziel wählen")
+                .setItems(labels, (d, which) -> {
+                    Cache.saveDestination(this, results.get(which));
+                    refresh();
+                })
+                .setNegativeButton("Abbrechen", null));
+    }
+
     /** Linien natürlich sortieren (U2 vor U12, M5 vor U2 usw.), dann nach Richtung. */
     private int compareKeys(String a, String b) {
         String[] x = a.split("\\|", 2);
@@ -156,8 +229,8 @@ public class SettingsActivity extends Activity {
     }
 
     /** Zeigt den Dialog; die Activity schließt sich, wenn kein weiterer Dialog folgt. */
-    private void show(AlertDialog.Builder b) {
-        b.setOnDismissListener(d -> {
+    private AlertDialog show(AlertDialog.Builder b) {
+        return b.setOnDismissListener(d -> {
             if (navigating) navigating = false;
             else finish();
         }).show();
