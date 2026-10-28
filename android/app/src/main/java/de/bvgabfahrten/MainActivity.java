@@ -34,7 +34,7 @@ public class MainActivity extends Activity {
                 + "2. „Widgets“ wählen\n"
                 + "3. „Abfahrten“ suchen und auf den Startbildschirm ziehen\n\n"
                 + "Auf das Widget tippen (oder auf ⟳), um Standort und Abfahrten zu aktualisieren.\n\n"
-                + "Auf die Titelzeile des Widgets tippen, um Haltestellen, Linien und Richtungen auszuwählen.");
+                + "Auf die Titelzeile des Widgets tippen, um Haltestellen, Linien und Richtungen auszuwählen oder ein Ziel einzugeben (Verbindung vom aktuellen Standort).");
         help.setTextSize(16);
         help.setTextColor(Color.parseColor("#1B1B1B"));
         help.setPadding(0, pad, 0, pad);

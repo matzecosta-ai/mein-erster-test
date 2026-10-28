@@ -34,7 +34,7 @@ public class RefreshActivity extends Activity {
         super.onCreate(savedInstanceState);
         lm = (LocationManager) getSystemService(LOCATION_SERVICE);
         List<Stop> selection = Cache.loadSelection(this);
-        if (!selection.isEmpty()) {
+        if (!selection.isEmpty() && Cache.loadDestination(this) == null) {
             loadSelection(selection); // feste Haltestellen: kein Standort nötig
         } else if (checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
             start();
@@ -138,8 +138,13 @@ public class RefreshActivity extends Activity {
         final android.content.Context app = getApplicationContext();
         new Thread(() -> {
             try {
-                BvgClient.Result r = BvgClient.fetchNearby(loc.getLatitude(), loc.getLongitude());
-                Cache.saveResult(app, r.stops, r.departures);
+                Stop dest = Cache.loadDestination(app);
+                if (dest != null) {
+                    Cache.saveJourneys(app, BvgClient.fetchJourneys(loc.getLatitude(), loc.getLongitude(), dest.id));
+                } else {
+                    BvgClient.Result r = BvgClient.fetchNearby(loc.getLatitude(), loc.getLongitude());
+                    Cache.saveResult(app, r.stops, r.departures);
+                }
             } catch (Exception e) {
                 Cache.saveError(app, e.getMessage() != null ? e.getMessage() : "Fehler beim Laden");
             }

@@ -16,6 +16,7 @@ Dieses Skript läuft in der kostenlosen App **Scriptable** und erzeugt ein echte
 - **Widget antippen:** öffnet die Live-Liste in Scriptable. Dort:
   - **Haltestellen wählen** – nur diese Haltestellen zeigen (dann ohne Standort). Nichts gewählt = alle in der Nähe.
   - **Linien & Richtungen filtern** – z. B. nur „U2 → Pankow“. Nichts gewählt = alles zeigen.
+  - **Ziel eingeben** – Verbindung vom aktuellen Standort zu einer Haltestelle (z. B. „Hermannstr."): Ziel eintippen, aus den Treffern wählen. Das Widget zeigt dann die nächsten Fahrten mit Linien, Umstiegen und Ankunft. „Kein Ziel" bringt die normale Abfahrtsliste zurück.
 - **Mehrere Widgets mit eigenen Einstellungen:** im Feld *Parameter* des Widgets einen Profilnamen eintragen (z. B. `arbeit`). Jedes Profil speichert Haltestellen und Filter getrennt. Ohne Parameter gilt das Profil `standard`.
 
 ## Grenzen

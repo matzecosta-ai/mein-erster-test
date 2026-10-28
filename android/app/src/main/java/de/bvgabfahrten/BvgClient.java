@@ -7,6 +7,7 @@ import java.io.BufferedReader;
 import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
 import java.net.URL;
+import java.net.URLEncoder;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -98,6 +99,64 @@ final class BvgClient {
         } finally {
             pool.shutdownNow();
         }
+    }
+
+    /** Haltestellen zu einem eingetippten Namen. */
+    static List<Stop> searchStops(String query) throws Exception {
+        JSONArray arr = new JSONArray(get(API + "/locations?query=" + URLEncoder.encode(query, "UTF-8")
+                + "&results=6&stops=true&addresses=false&poi=false"));
+        List<Stop> result = new ArrayList<>();
+        for (int i = 0; i < arr.length(); i++) {
+            JSONObject s = arr.getJSONObject(i);
+            if ("stop".equals(s.optString("type"))) {
+                result.add(new Stop(s.getString("id"), shortName(s.optString("name")), 0));
+            }
+        }
+        return result;
+    }
+
+    /** Nächste Verbindungen vom Standort (inkl. Fußweg) zu einer Zielhaltestelle; nur BVG-Verkehrsmittel. */
+    static List<Journey> fetchJourneys(double lat, double lon, String destId) throws Exception {
+        JSONObject r = new JSONObject(get(API + "/journeys?from.latitude=" + lat + "&from.longitude=" + lon
+                + "&from.address=" + URLEncoder.encode("Mein Standort", "UTF-8") + "&to=" + destId
+                + "&results=5&stopovers=false&remarks=false"
+                + "&suburban=true&subway=true&tram=true&bus=true&ferry=true&express=false&regional=false"));
+        JSONArray journeys = r.optJSONArray("journeys");
+        List<Journey> result = new ArrayList<>();
+        if (journeys == null) return result;
+        SimpleDateFormat iso = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ssXXX", Locale.GERMANY);
+        for (int i = 0; i < journeys.length(); i++) {
+            JSONArray legs = journeys.getJSONObject(i).getJSONArray("legs");
+            List<JSONObject> transit = new ArrayList<>();
+            for (int j = 0; j < legs.length(); j++) {
+                JSONObject leg = legs.getJSONObject(j);
+                if (leg.optJSONObject("line") != null) transit.add(leg);
+            }
+            if (transit.isEmpty()) continue; // reiner Fußweg
+            JSONObject first = transit.get(0);
+            JSONObject last = legs.getJSONObject(legs.length() - 1);
+            StringBuilder lines = new StringBuilder();
+            boolean cancelled = false;
+            for (JSONObject t : transit) {
+                if (lines.length() > 0) lines.append(" → ");
+                lines.append(t.getJSONObject("line").optString("name", "?"));
+                cancelled |= t.optBoolean("cancelled");
+            }
+            String dep = first.isNull("departure") ? first.optString("plannedDeparture") : first.optString("departure");
+            String arr = last.isNull("arrival") ? last.optString("plannedArrival") : last.optString("arrival");
+            JSONObject origin = first.optJSONObject("origin");
+            result.add(new Journey(
+                    first.getJSONObject("line").optString("name", "?"),
+                    first.getJSONObject("line").optString("product", ""),
+                    lines.toString(),
+                    origin != null ? shortName(origin.optString("name")) : "",
+                    iso.parse(dep).getTime(),
+                    iso.parse(arr).getTime(),
+                    transit.size() - 1,
+                    first.isNull("departureDelay") ? 0 : Math.round(first.optInt("departureDelay") / 60f),
+                    cancelled));
+        }
+        return result;
     }
 
     private static String shortName(String name) {
