@@ -145,6 +145,8 @@ final class BvgClient {
             String dep = first.isNull("departure") ? first.optString("plannedDeparture") : first.optString("departure");
             String arr = last.isNull("arrival") ? last.optString("plannedArrival") : last.optString("arrival");
             JSONObject origin = first.optJSONObject("origin");
+            List<Leg> allLegs = new ArrayList<>();
+            for (int j = 0; j < legs.length(); j++) allLegs.add(parseLeg(legs.getJSONObject(j), iso));
             result.add(new Journey(
                     first.getJSONObject("line").optString("name", "?"),
                     first.getJSONObject("line").optString("product", ""),
@@ -154,9 +156,37 @@ final class BvgClient {
                     iso.parse(arr).getTime(),
                     transit.size() - 1,
                     first.isNull("departureDelay") ? 0 : Math.round(first.optInt("departureDelay") / 60f),
-                    cancelled));
+                    cancelled,
+                    allLegs));
         }
         return result;
+    }
+
+    private static Leg parseLeg(JSONObject leg, SimpleDateFormat iso) throws Exception {
+        JSONObject line = leg.optJSONObject("line");
+        String dep = leg.isNull("departure") ? leg.optString("plannedDeparture") : leg.optString("departure");
+        String arr = leg.isNull("arrival") ? leg.optString("plannedArrival") : leg.optString("arrival");
+        return new Leg(
+                line == null ? null : line.optString("name", "?"),
+                line == null ? "" : line.optString("product", ""),
+                shortName(leg.optString("direction")),
+                placeName(leg.optJSONObject("origin"), "Mein Standort"),
+                placeName(leg.optJSONObject("destination"), "Ziel"),
+                iso.parse(dep).getTime(),
+                iso.parse(arr).getTime(),
+                leg.isNull("departureDelay") ? 0 : Math.round(leg.optInt("departureDelay") / 60f),
+                leg.isNull("arrivalDelay") ? 0 : Math.round(leg.optInt("arrivalDelay") / 60f),
+                leg.isNull("departurePlatform") ? "" : leg.optString("departurePlatform"),
+                leg.isNull("arrivalPlatform") ? "" : leg.optString("arrivalPlatform"),
+                leg.optInt("distance"),
+                leg.optBoolean("cancelled"));
+    }
+
+    /** Haltestellenname; freie Orte (Adresse/Standort) heißen so, wie angegeben. */
+    private static String placeName(JSONObject place, String fallback) {
+        if (place == null) return fallback;
+        if ("stop".equals(place.optString("type"))) return shortName(place.optString("name"));
+        return fallback;
     }
 
     private static String shortName(String name) {

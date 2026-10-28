@@ -95,8 +95,14 @@ final class WidgetRenderer {
         for (Journey j : s.journeys) {
             if (shown == ROWS.length) break;
             if (j.departMillis < now - 30_000) continue; // schon abgefahren
-            int[] r = ROWS[shown++];
+            int[] r = ROWS[shown];
             v.setViewVisibility(r[0], android.view.View.VISIBLE);
+            Intent detail = new Intent(ctx, JourneyActivity.class)
+                    .putExtra(JourneyActivity.EXTRA_DEPART, j.departMillis)
+                    .putExtra(JourneyActivity.EXTRA_LINES, j.lines);
+            v.setOnClickPendingIntent(r[0], PendingIntent.getActivity(ctx, 10 + shown, detail,
+                    PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE));
+            shown++;
             v.setTextViewText(r[1], j.firstLine);
             v.setInt(r[1], "setBackgroundResource", badge(j.product));
             v.setTextViewText(r[2], j.lines + (j.transfers == 0 ? "" : " · " + j.transfers + " Umst."));
@@ -112,7 +118,8 @@ final class WidgetRenderer {
         if (loadingText != null) status = loadingText;
         else if (s.error != null && !s.error.isEmpty()) status = s.error;
         else if (s.updatedAt == 0) status = "Zum Laden tippen";
-        else status = "Stand " + hm.format(new Date(s.updatedAt)) + (shown == 0 ? " · keine Verbindung gefunden" : "");
+        else status = "Stand " + hm.format(new Date(s.updatedAt))
+                + (shown == 0 ? " · keine Verbindung gefunden" : " · Verbindung antippen für Details");
         v.setTextViewText(R.id.status, status);
         v.setTextViewText(R.id.title, "→ " + dest.name + " ▾");
         wireClicks(ctx, v);
