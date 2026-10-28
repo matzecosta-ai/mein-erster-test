@@ -112,6 +112,7 @@ async function fetchJourneys(lat, lon, destId) {
     const dep = first.departure || first.plannedDeparture;
     const arr = last.arrival || last.plannedArrival;
     result.push({
+      legs: j.legs.map(parseLeg),
       firstLine: first.line.name || "?",
       product: first.line.product || "",
       lines: transit.map(t => t.line.name || "?").join(" → "),
@@ -124,6 +125,30 @@ async function fetchJourneys(lat, lon, destId) {
     });
   }
   return result;
+}
+
+function placeName(place, fallback) {
+  return place && place.type === "stop" ? shortName(place.name) : fallback;
+}
+
+// Ein Abschnitt: Fußweg (line == null) oder Fahrt.
+function parseLeg(l) {
+  const dep = l.departure || l.plannedDeparture, arr = l.arrival || l.plannedArrival;
+  return {
+    line: l.line ? l.line.name || "?" : null,
+    product: l.line ? l.line.product || "" : "",
+    direction: shortName(l.direction),
+    from: placeName(l.origin, "Mein Standort"),
+    to: placeName(l.destination, "Ziel"),
+    depart: new Date(dep).getTime(),
+    arrive: new Date(arr).getTime(),
+    depDelay: l.departureDelay == null ? 0 : Math.round(l.departureDelay / 60),
+    arrDelay: l.arrivalDelay == null ? 0 : Math.round(l.arrivalDelay / 60),
+    depPlatform: l.departurePlatform || "",
+    arrPlatform: l.arrivalPlatform || "",
+    distance: l.distance || 0,
+    cancelled: !!l.cancelled,
+  };
 }
 
 function timeText(ms) {
@@ -401,6 +426,74 @@ async function chooseFilter(profile, data) {
   saveSettings(profile, data.settings);
 }
 
+function hasActiveSettings(settings) {
+  return settings.stops.length > 0 || settings.filter.length > 0 || !!settings.destination;
+}
+
+function clearSettings(profile, settings) {
+  settings.stops = [];
+  settings.filter = [];
+  settings.destination = null;
+  saveSettings(profile, settings);
+}
+
+// Umstieg zwischen zwei Fahrten, optional mit Fußweg dazwischen.
+function transferText(prev, walk, next) {
+  const wait = Math.max(0, Math.round((next.depart - prev.arrive) / 60000));
+  return `↻  Umsteigen in ${prev.to}` +
+    (walk && walk.distance > 0 ? ` · Fußweg ${walk.distance} m` : "") +
+    ` · ${wait} min Zeit` +
+    (next.depPlatform ? ` · weiter ab Gleis ${next.depPlatform}` : "");
+}
+
+// Ganzer Verlauf einer Verbindung: Fußwege, Fahrten mit Gleis und Zeit, Umstiege.
+async function showJourneyDetail(j, dest) {
+  const table = new UITable();
+  table.showSeparators = true;
+  const dur = Math.max(1, Math.round((j.arrive - j.depart) / 60000));
+  const head = new UITableRow();
+  head.isHeader = true;
+  head.addText(`→ ${dest ? dest.name : "Ziel"}`,
+    `Abfahrt ${timeText(j.depart)} · Ankunft ${timeText(j.arrive)} · ${dur} min · ` +
+    (j.transfers === 0 ? "ohne Umstieg" : j.transfers === 1 ? "1 Umstieg" : `${j.transfers} Umstiege`));
+  table.addRow(head);
+
+  const legs = j.legs || [];
+  const note = (text, highlight) => {
+    const row = new UITableRow();
+    const c = row.addText(text);
+    if (highlight) { row.backgroundColor = new Color("#FFF3B0"); c.titleColor = Color.black(); }
+    table.addRow(row);
+  };
+  const stop = (ms, delay, name, platform) => {
+    const row = new UITableRow();
+    const t = row.addText(timeText(ms) + (delay >= 1 ? ` +${delay}` : ""));
+    t.widthWeight = 25;
+    if (delay >= 3) t.titleColor = new Color("#c62828");
+    row.addText(name + (platform ? `  ·  Gleis ${platform}` : "")).widthWeight = 75;
+    table.addRow(row);
+  };
+
+  legs.forEach((leg, i) => {
+    if (!leg.line) { // Fußweg
+      const middle = i > 0 && i < legs.length - 1;
+      if (middle) { note(transferText(legs[i - 1], leg, legs[i + 1]), true); return; }
+      const min = Math.max(1, Math.round((leg.arrive - leg.depart) / 60000));
+      note(`🚶  ${i === 0 ? "Fußweg zur Haltestelle" : "Fußweg zum Ziel"} · ${leg.distance} m · ca. ${min} min`, false);
+      return;
+    }
+    if (i > 0 && legs[i - 1].line) note(transferText(legs[i - 1], null, leg), true); // Umstieg ohne Fußweg
+    stop(leg.depart, leg.depDelay, leg.from, leg.depPlatform);
+    const ride = new UITableRow();
+    const m = Math.max(1, Math.round((leg.arrive - leg.depart) / 60000));
+    ride.addText(`${leg.line}  →  ${leg.direction}`, `${m} min Fahrt${leg.cancelled ? " · entfällt" : ""}`);
+    ride.backgroundColor = new Color(BADGE_COLORS[leg.product] || "#666666", 0.25);
+    table.addRow(ride);
+    stop(leg.arrive, leg.arrDelay, leg.to, leg.arrPlatform);
+  });
+  await table.present();
+}
+
 async function chooseDestination(profile, data) {
   const input = new Alert();
   input.title = "Wohin willst du fahren?";
@@ -432,9 +525,13 @@ async function chooseDestination(profile, data) {
 }
 
 async function showInApp(profile) {
+  let cached = null; // nach der Detailansicht ohne neuen Abruf zurück zur Liste
   while (true) {
     let data;
-    try {
+    if (cached) {
+      data = cached;
+      cached = null;
+    } else try {
       data = await loadData(profile);
     } catch (e) {
       const a = new Alert();
@@ -458,13 +555,14 @@ async function showInApp(profile) {
       `Profil „${profile}“ · Stand ${new Date(data.updatedAt).toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" })}`);
     table.addRow(head);
 
-    let action = null;
+    let action = null, picked = null;
     const add = (text, name) => {
       const row = new UITableRow();
       row.addText(text);
       row.onSelect = () => { action = name; };
       table.addRow(row);
     };
+    if (hasActiveSettings(data.settings)) add("✕  Alles zurücksetzen (Haltestellen, Filter, Ziel)", "reset");
     add(dest ? `⚙  Ziel ändern: ${dest.name}` : "⚙  Ziel eingeben (Verbindung)", "destination");
     if (dest) add("✕  Kein Ziel (zurück zu Abfahrten)", "nodestination");
     if (!dest) {
@@ -477,6 +575,7 @@ async function showInApp(profile) {
       const js = visibleJourneys(data.journeys, now);
       for (const j of js) {
         const row = new UITableRow();
+        row.onSelect = () => { action = "detail"; picked = j; };
         const dur = Math.max(1, Math.round((j.arrive - j.depart) / 60000));
         row.addText(`${j.lines}${j.transfers ? ` · ${j.transfers} Umst.` : ""}`,
           `ab ${j.originStop} · an ${timeText(j.arrive)} (${dur} min)`).widthWeight = 80;
@@ -491,7 +590,9 @@ async function showInApp(profile) {
         table.addRow(row);
       }
       await table.present();
-      if (action === "destination") await chooseDestination(profile, data);
+      if (action === "detail") { await showJourneyDetail(picked, dest); cached = data; }
+      else if (action === "reset") clearSettings(profile, data.settings);
+      else if (action === "destination") await chooseDestination(profile, data);
       else if (action === "nodestination") { data.settings.destination = null; saveSettings(profile, data.settings); }
       else if (action !== "reload") return; // Tabelle wurde geschlossen
       continue;
@@ -512,7 +613,8 @@ async function showInApp(profile) {
     }
 
     await table.present();
-    if (action === "destination") await chooseDestination(profile, data);
+    if (action === "reset") clearSettings(profile, data.settings);
+    else if (action === "destination") await chooseDestination(profile, data);
     else if (action === "stops") await chooseStops(profile, data);
     else if (action === "filter") await chooseFilter(profile, data);
     else if (action !== "reload") return; // Tabelle wurde geschlossen
@@ -543,6 +645,6 @@ if (typeof __BVG_TEST__ === "undefined") {
 } else {
   module.exports = {
     shortName, filterKey, compareLines, compareKeys, fetchNearby, fetchDepartures,
-    visibleDepartures, minutesText, loadData, buildWidget, main, showInApp, searchStops, fetchJourneys,
+    visibleDepartures, minutesText, loadData, buildWidget, main, showInApp, searchStops, fetchJourneys, showJourneyDetail, clearSettings, hasActiveSettings,
   };
 }
