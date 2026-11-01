@@ -1,0 +1,169 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Previs</title>
+  <link rel="stylesheet" href="css/app.css">
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "./vendor/three/three.module.js",
+        "three/addons/": "./vendor/three/addons/"
+      }
+    }
+  </script>
+</head>
+<body>
+  <div id="app">
+    <header id="topbar">
+      <div class="brand">Previs</div>
+      <input id="projectName" class="project-name" spellcheck="false" title="Projektname">
+      <div class="group">
+        <button data-act="new" title="Neues, leeres Projekt">Neu</button>
+        <button data-act="open" title="Projektdatei öffnen">Öffnen</button>
+        <button data-act="save" title="Projekt als Datei speichern (⌘S)">Speichern</button>
+        <button data-act="example" title="Beispielszene laden">Beispiel</button>
+      </div>
+      <div class="group">
+        <button data-act="undo" title="Rückgängig (⌘Z)">↶</button>
+        <button data-act="redo" title="Wiederholen (⇧⌘Z)">↷</button>
+      </div>
+      <div class="spacer"></div>
+      <span id="toast" class="toast" role="status"></span>
+      <button data-act="help" class="round" title="Bedienung">?</button>
+      <input id="fileInput" type="file" accept=".json,application/json" hidden>
+    </header>
+
+    <aside id="left" class="panel"></aside>
+
+    <main id="center">
+      <section id="work" class="view">
+        <div class="viewbar">
+          <div class="seg" id="modeSeg">
+            <button data-mode="plan" title="Grundriss von oben (1)">Grundriss</button>
+            <button data-mode="3d" title="Freie 3D-Ansicht (2)">3D</button>
+          </div>
+          <div class="seg" id="toolSeg">
+            <button data-tool="select" title="Auswählen und verschieben (Esc)">Auswählen</button>
+            <button data-tool="wall" title="Wände zeichnen (W)">Wand</button>
+            <button data-tool="lasso" title="Mehrere Dinge einkreisen, zum Verschieben, Kopieren und Einfügen (L)">Lasso</button>
+            <button data-tool="measure" title="Abstand messen (M)">Messen</button>
+          </div>
+          <div class="hint" id="toolHint"></div>
+        </div>
+        <div class="canvas-wrap" id="workCanvas">
+          <div class="coords" id="coords"></div>
+        </div>
+      </section>
+      <section id="cam" class="view">
+        <div class="viewbar">
+          <span class="viewtitle" id="camTitle">Kamera</span>
+          <div class="spacer"></div>
+          <label class="check" title="Drittel-Raster einblenden"><input type="checkbox" id="thirds" checked> Raster</label>
+          <select id="exportRes" title="Auflösung der kürzeren Bildseite">
+            <option value="480">480p</option>
+            <option value="720" selected>720p</option>
+            <option value="1080">1080p</option>
+          </select>
+          <button data-act="prompttext" title="Aufstellung und Ablauf des Shots als Text für den Prompt">Prompt-Text</button>
+          <select id="imgMenu" title="Standbild speichern">
+            <option value="">Bild …</option>
+            <option value="png">Mit Figuren</option>
+            <option value="pngEmpty">Leerer Raum</option>
+          </select>
+          <button data-act="video" class="primary" title="Shot als MP4 exportieren">Video</button>
+          <div class="hint cam-hint">Im Kamerabild klicken und ziehen: schwenken und neigen · mit ⇧ hoch, runter, seitlich · mit ⌥ vor und zurück · Scrollen: Brennweite</div>
+        </div>
+        <div class="canvas-wrap" id="camCanvas">
+          <div class="frame" id="camFrame"><div class="thirds"></div><div class="caminfo" id="camInfo"></div></div>
+        </div>
+      </section>
+    </main>
+
+    <aside id="right" class="panel"></aside>
+
+    <footer id="timeline">
+      <button id="playBtn" class="play" title="Abspielen / Pause (Leertaste)">▶</button>
+      <label class="check" title="Endlos abspielen"><input type="checkbox" id="loop" checked> Schleife</label>
+      <span id="timeText" class="time">0,0 s</span>
+      <div class="track" id="track">
+        <div class="bars" id="bars"></div>
+        <input type="range" id="scrub" min="0" max="5" step="0.001" value="0">
+        <div class="ticks" id="ticks"></div>
+      </div>
+    </footer>
+  </div>
+
+  <dialog id="helpDialog">
+    <h2>Bedienung</h2>
+    <div class="help-grid">
+      <div>
+        <h3>Grundriss</h3>
+        <p><b>Ziehen</b> auf ein Objekt verschiebt es (5-cm-Raster, mit ⌥ frei).</p>
+        <p><b>Blauer Griff</b> vor dem Objekt dreht es (5°-Schritte, mit ⇧ 15°).</p>
+        <p><b>Ziehen</b> auf leere Fläche verschiebt die Ansicht, <b>Scrollen</b> zoomt.</p>
+        <p><b>Wand (W):</b> Punkte anklicken, die Länge läuft mit. Rechte Winkel rasten ein, mit ⌥ frei. Ist der Raum geschlossen oder die Wand an eine andere angedockt, endet das Werkzeug von selbst: So entstehen Trennwände und Nebenräume. Enter beendet.</p>
+        <p><b>Bewegen:</b> Zeitleiste an die richtige Stelle, dann die Figur ziehen: Das setzt sofort einen Punkt. Rechts wirken „Setzen“, „Aufstehen“ und Haltungen an dieser Stelle. Klick auf den Weg setzt einen Zwischenpunkt für einen Bogen.</p>
+        <p><b>Messen (M):</b> zwei Punkte anklicken.</p>
+        <p><b>Lasso (L):</b> Möbel, Flächen und Wände einkreisen. Dann gemeinsam ziehen oder mit ⌘C und ⌘V kopieren, auch in ein anderes Projekt.</p>
+        <p><b>Tür und Fenster:</b> Wand anklicken, rechts „+ Tür“ oder „+ Fenster“. Dann im Grundriss entlang der Wand ziehen. Ein reines Loch ist bei der Tür die Art „Öffnung“.</p>
+        <p><b>Fläche oder Bild:</b> unter „Möbel &amp; Formen“. Liegt auf Boden, Wand oder Decke, einfarbig oder mit eigenem Bild, etwa als Teppich, Poster oder Schiene.</p>
+      </div>
+      <div>
+        <h3>3D</h3>
+        <p><b>Linke Maustaste</b> dreht die Ansicht, <b>rechte</b> verschiebt, <b>Scrollen</b> zoomt.</p>
+        <p><b>Klick</b> wählt aus, <b>G</b> verschieben, <b>R</b> drehen, <b>F</b> auf Auswahl zentrieren.</p>
+        <h3>Überall</h3>
+        <p><b>Leertaste</b> abspielen, <b>,</b> / <b>.</b> ein Bild zurück / vor.</p>
+        <p><b>Pfeiltasten</b> verschieben die Auswahl um 1 cm (mit ⇧ 10 cm).</p>
+        <p><b>⇧D</b> dupliziert, <b>Entf / ⌫</b> löscht, <b>⌘Z</b> macht rückgängig.</p>
+        <p><b>1</b> Grundriss, <b>2</b> 3D.</p>
+        <h3>Kamerablick</h3>
+        <p><b>Ziehen</b> schwenkt und neigt die Kamera.</p>
+        <p><b>⇧ + Ziehen</b> fährt sie hoch, runter und seitlich.</p>
+        <p><b>⌥ + Ziehen</b> fährt sie vor und zurück.</p>
+        <p><b>Scrollen</b> ändert die Brennweite.</p>
+        <p>Die Kamera arbeitet wie die Figuren: Zeitleiste an die Stelle, Kamera einrichten, das setzt einen Punkt.</p>
+      </div>
+    </div>
+    <p class="muted">Maße kannst du mit Einheit eintippen: „1,80 m“, „180 cm“ oder nur „180“. Die Brennweite gilt wie bei einer Kleinbildkamera.</p>
+    <form method="dialog"><button class="primary">Schließen</button></form>
+  </dialog>
+
+  <dialog id="newDialog">
+    <h2>Neues Projekt</h2>
+    <form method="dialog">
+      <label class="f wide new-name"><span>Name</span><input id="newName" spellcheck="false" placeholder="z. B. Level 5 – Küche" autocomplete="off"></label>
+      <p class="muted" id="newWarn"></p>
+      <div class="dialog-actions">
+        <button type="button" id="newCancel">Abbrechen</button>
+        <button value="ok" class="primary">Anlegen</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="promptDialog">
+    <h2 id="promptTitle">Prompt-Text</h2>
+    <p class="muted">Aus dem aktuellen Shot berechnet: Lagen und Blickrichtungen so, wie die Kamera sie sieht. Als Baustein für den Prompt gedacht.</p>
+    <div class="prompt-head"><b>Englisch</b><button type="button" class="small" id="copyEn">Kopieren</button></div>
+    <textarea id="promptEn" readonly spellcheck="false"></textarea>
+    <div class="prompt-head"><b>Deutsch</b><button type="button" class="small" id="copyDe">Kopieren</button></div>
+    <textarea id="promptDe" readonly spellcheck="false"></textarea>
+    <form method="dialog"><button class="primary">Schließen</button></form>
+  </dialog>
+
+  <dialog id="exportDialog">
+    <h2 id="exportTitle">Video fertig</h2>
+    <video id="exportVideo" controls muted playsinline loop></video>
+    <p class="muted" id="exportInfo"></p>
+    <form method="dialog" class="dialog-actions">
+      <button value="close">Schließen</button>
+      <button type="button" id="exportReveal" class="primary">Im Finder zeigen</button>
+      <a id="exportLink" class="button primary" download>Video speichern</a>
+    </form>
+  </dialog>
+
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>

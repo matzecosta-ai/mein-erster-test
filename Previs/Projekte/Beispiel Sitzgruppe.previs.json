@@ -1,0 +1,262 @@
+{
+  "app": "previs",
+  "version": 1,
+  "name": "Beispiel Sitzgruppe",
+  "set": {
+    "floorColor": "#a6a6a6",
+    "bgColor": "#6e6e6e",
+    "wallColor": "#c4c4c4",
+    "ceiling": false,
+    "walls": [
+      {
+        "id": "i2a1qxyy",
+        "a": {
+          "x": -3.325,
+          "z": -2.6750000000000003
+        },
+        "b": {
+          "x": 3.975,
+          "z": -2.6750000000000003
+        },
+        "t": 0.15,
+        "h": 2.6
+      },
+      {
+        "id": "ixlr4j0l",
+        "a": {
+          "x": 3.975,
+          "z": -2.6750000000000003
+        },
+        "b": {
+          "x": 3.75,
+          "z": 23.75
+        },
+        "t": 0.15,
+        "h": 2.6
+      },
+      {
+        "id": "ip4se3cz",
+        "a": {
+          "x": 3.75,
+          "z": 23.75
+        },
+        "b": {
+          "x": -3.6999999999999997,
+          "z": 23.75
+        },
+        "t": 0.15,
+        "h": 2.6
+      },
+      {
+        "id": "ir0pty4n",
+        "a": {
+          "x": -3.6999999999999997,
+          "z": 23.75
+        },
+        "b": {
+          "x": -3.325,
+          "z": -2.6750000000000003
+        },
+        "t": 0.15,
+        "h": 2.6
+      }
+    ],
+    "openings": [],
+    "objects": [
+      {
+        "id": "iujhqnnr",
+        "kind": "sessel",
+        "name": "Sessel links",
+        "color": "#5a3d2b",
+        "x": -2,
+        "z": 0.35,
+        "y": 0,
+        "heading": 125,
+        "w": 0.85,
+        "d": 0.85,
+        "h": 0.8,
+        "seat": 0.42
+      },
+      {
+        "id": "im4rl4ya",
+        "kind": "sessel",
+        "name": "Sessel hinten",
+        "color": "#5a3d2b",
+        "x": -0.35,
+        "z": -0.95,
+        "y": 0,
+        "heading": 165,
+        "w": 0.85,
+        "d": 0.85,
+        "h": 0.8,
+        "seat": 0.42
+      },
+      {
+        "id": "ia2d5j8a",
+        "kind": "sofa",
+        "name": "Sofa",
+        "color": "#5a3d2b",
+        "x": 1.25,
+        "z": -0.85,
+        "y": 0,
+        "heading": 200,
+        "w": 1.9,
+        "d": 0.9,
+        "h": 0.8,
+        "seat": 0.43
+      },
+      {
+        "id": "ioomy5z5",
+        "kind": "sessel",
+        "name": "Sessel rechts",
+        "color": "#5a3d2b",
+        "x": 2.35,
+        "z": 0.35,
+        "y": 0,
+        "heading": 250,
+        "w": 0.85,
+        "d": 0.85,
+        "h": 0.8,
+        "seat": 0.42
+      },
+      {
+        "id": "iqy3h2ix",
+        "kind": "couchtisch",
+        "name": "Couchtisch",
+        "color": "#3b2a1e",
+        "x": 0.25,
+        "z": 0.35,
+        "y": 0,
+        "heading": 0,
+        "w": 0.8,
+        "d": 0.8,
+        "h": 0.48
+      },
+      {
+        "id": "ig422n20",
+        "kind": "stehlampe",
+        "name": "Stehlampe",
+        "color": "#c9a25e",
+        "x": 0.75,
+        "z": -1.85,
+        "y": 0,
+        "heading": 0,
+        "w": 0.45,
+        "d": 0.45,
+        "h": 1.65
+      }
+    ],
+    "figures": [
+      {
+        "id": "iygafy23",
+        "name": "Frau",
+        "color": "#d42a2a",
+        "height": 1.68
+      }
+    ],
+    "autoCutaway": true
+  },
+  "shots": [
+    {
+      "id": "i8udgsvn",
+      "name": "Gang um den Tisch",
+      "duration": 8,
+      "fps": 30,
+      "format": "16:9",
+      "camera": {
+        "start": {
+          "x": -1.1,
+          "z": 7.4,
+          "y": 1.42,
+          "pan": 7.5,
+          "tilt": -9,
+          "focal": 32
+        },
+        "end": {
+          "x": 4.36,
+          "z": 3.66,
+          "y": 1.76,
+          "pan": 307,
+          "tilt": -12,
+          "focal": 38
+        },
+        "moving": true,
+        "via": [],
+        "t0": 0,
+        "t1": 8,
+        "ease": true,
+        "aim": ""
+      },
+      "figs": {
+        "iygafy23": {
+          "x": -1.75,
+          "z": -0.75,
+          "heading": 180,
+          "pose": "stehen",
+          "headYaw": 0,
+          "path": [
+            {
+              "x": -0.8,
+              "z": 0.15
+            },
+            {
+              "x": -0.6,
+              "z": 1
+            },
+            {
+              "x": 1.95,
+              "z": 1.85
+            }
+          ],
+          "t0": 0.3,
+          "t1": 8,
+          "ease": true
+        }
+      }
+    },
+    {
+      "id": "iea9pttx",
+      "name": "Sitzt auf dem Sofa",
+      "duration": 4,
+      "fps": 30,
+      "format": "9:16",
+      "camera": {
+        "start": {
+          "x": 1.55,
+          "z": 1.4,
+          "y": 1.05,
+          "pan": 351,
+          "tilt": -6,
+          "focal": 50
+        },
+        "end": {
+          "x": 1.55,
+          "z": 1.4,
+          "y": 1.05,
+          "pan": 351,
+          "tilt": -6,
+          "focal": 50
+        },
+        "moving": false,
+        "via": [],
+        "t0": 0,
+        "t1": 4,
+        "ease": true,
+        "aim": ""
+      },
+      "figs": {
+        "iygafy23": {
+          "x": 1.25,
+          "z": -0.85,
+          "heading": 200,
+          "pose": "sitzen",
+          "headYaw": -20,
+          "path": [],
+          "t0": 0,
+          "t1": 4,
+          "ease": true
+        }
+      }
+    }
+  ]
+}

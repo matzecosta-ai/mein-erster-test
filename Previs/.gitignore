@@ -1,0 +1,4 @@
+Exporte/
+.ffmpeg.log
+ffmpeg.exe
+__pycache__/

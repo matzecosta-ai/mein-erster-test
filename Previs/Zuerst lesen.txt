@@ -1,0 +1,63 @@
+﻿Previs Beta fuer Windows
+========================
+
+Previs ist ein Werkzeug, um Raeume, Figuren und Kamera als Vorlage fuer KI-Videos aufzubauen.
+Die Bedienung steht in "Previs-Bedienung.pdf".
+Diese Windows-Fassung ist neu und konnte noch nicht auf einem PC getestet werden. Rueckmeldungen helfen sehr.
+
+
+1. PYTHON INSTALLIEREN (einmalig)
+
+   - https://www.python.org/downloads/ aufrufen und Python 3 herunterladen.
+   - Im Installer unten das Haekchen "Add python.exe to PATH" setzen.
+   - "Install Now" klicken.
+
+
+2. FFMPEG FUER VIDEOS (einmalig)
+
+   Ohne ffmpeg gehen Bilder, aber der Video-Export laeuft nur notfalls ueber den Browser.
+
+   - https://www.gyan.dev/ffmpeg/builds/ aufrufen.
+   - Dort "ffmpeg-release-essentials.zip" laden und entpacken.
+   - Im entpackten Ordner "bin" die Datei "ffmpeg.exe" suchen.
+   - "ffmpeg.exe" in diesen Previs-Ordner kopieren, neben "server.py".
+
+
+3. PREVIS STARTEN
+
+   - Den ganzen ZIP-Ordner zuerst entpacken. Direkt aus dem ZIP heraus laeuft Previs nicht.
+   - Doppelklick auf "Previs starten.bat".
+   - Falls Windows warnt ("Der Computer wurde geschuetzt"): "Weitere Informationen", dann "Trotzdem ausfuehren".
+   - Falls die Firewall fragt: Previs braucht keinen Internetzugang.
+   - Der Browser oeffnet sich mit Previs. Am besten Chrome oder Edge verwenden.
+   - Ein kleines Fenster "Previs Server" bleibt in der Taskleiste. Dieses bitte offen lassen.
+
+   Beenden: Doppelklick auf "Previs beenden.bat".
+
+
+TASTEN
+
+   In der Anleitung und im Programm stehen die Mac-Zeichen. Am PC gilt:
+
+     Mac-Taste (Befehl, Zeichen wie eine Schleife)   =  Strg
+     Mac-Taste Option                                =  Alt
+     Pfeil nach oben                                 =  Umschalt
+     Loeschen                                        =  Entf oder Ruecktaste
+
+   Beispiel: Rueckgaengig ist Strg + Z.
+
+
+DATEIEN
+
+   Bilder und Videos landen im Ordner "Exporte", Projekte im Ordner "Projekte".
+   Wichtig: Immer mit "Speichern" sichern. Die automatische Sicherung liegt nur im Browser.
+   Projektdateien lassen sich mit Mac-Nutzern austauschen.
+
+
+WENN ES NICHT KLAPPT
+
+   - "Python wurde nicht gefunden": Python neu installieren und das Haekchen "Add python.exe to PATH" setzen.
+   - Browser zeigt "Seite nicht erreichbar": kurz warten und die Seite neu laden.
+   - Video-Export meldet einen Fehler: Liegt "ffmpeg.exe" neben "server.py"? Danach Previs neu starten.
+
+   Bitte Fehler mit einem Bildschirmfoto an Lars schicken.
