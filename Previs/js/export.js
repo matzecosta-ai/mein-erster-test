@@ -71,6 +71,7 @@ export async function exportPng(app, shortSide, { empty = false } = {}) {
   const dataUrl = canvas.toDataURL('image/png');
   const blob = await new Promise((r) => canvas.toBlob(r, 'image/png'));
   renderer.dispose();
+  renderer.forceContextLoss(); // WebGL-Kontext sofort freigeben, der Browser erlaubt nur wenige
   const t = app.state.time.toFixed(1).replace('.', ',');
   return { blob, dataUrl, name: `${safeName(app.state.project.name)} - ${safeName(app.shot.name)} - ${t}s${empty ? ' - leer' : ''}.png` };
 }
@@ -137,6 +138,7 @@ async function exportWithFfmpeg(app, { w, h, fps, frames, name }, onProgress) {
     throw err;
   } finally {
     renderer.dispose();
+    renderer.forceContextLoss();
     app.world.update(app, keep);
   }
 }
@@ -176,6 +178,7 @@ async function exportWithWebCodecs(app, { w, h, fps, frames, name }, onProgress)
   } finally {
     if (encoder.state !== 'closed') encoder.close();
     renderer.dispose();
+    renderer.forceContextLoss();
     app.world.update(app, keep);
   }
   const blob = new Blob([muxer.target.buffer], { type: 'video/mp4' });

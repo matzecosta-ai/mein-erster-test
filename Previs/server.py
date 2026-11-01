@@ -10,6 +10,7 @@ import shutil
 import subprocess
 import sys
 import threading
+import time
 import urllib.parse
 import uuid
 
@@ -23,6 +24,7 @@ WINDOWS = sys.platform == 'win32'
 FFMPEG = shutil.which('ffmpeg') or next((p for p in (os.path.join(ROOT, 'ffmpeg.exe'), '/opt/homebrew/bin/ffmpeg', '/usr/local/bin/ffmpeg') if os.path.exists(p)), None)
 JOBS = {}
 JOBS_LOCK = threading.Lock()
+JOB_IDLE_SECONDS = 120  # Video-Job ohne neues Bild so lange: ffmpeg wird beendet (z. B. Browser zugemacht)
 
 
 def safe_name(name):
@@ -39,6 +41,35 @@ def unique(path):
     while os.path.exists(f'{base} ({i}){ext}'):
         i += 1
     return f'{base} ({i}){ext}'
+
+
+def drop_job(job, remove_file=True):
+    with JOBS_LOCK:
+        info = JOBS.pop(job, None)
+    if not info:
+        return
+    try:
+        info['proc'].kill()
+        info['proc'].wait(timeout=5)  # Prozess abholen, sonst bleibt auf Mac/Linux ein Zombie
+    except (OSError, subprocess.TimeoutExpired):
+        pass
+    info['log'].close()
+    if remove_file and os.path.exists(info['path']):
+        try:
+            os.remove(info['path'])
+        except OSError:
+            pass
+
+
+def reap_jobs():
+    # Räumt Video-Jobs auf, deren Browser nicht mehr meldet, damit kein ffmpeg im Hintergrund hängen bleibt
+    while True:
+        time.sleep(15)
+        now = time.time()
+        with JOBS_LOCK:
+            stale = [j for j, info in JOBS.items() if now - info['seen'] > JOB_IDLE_SECONDS]
+        for job in stale:
+            drop_job(job)
 
 
 def inside_folders(path):
@@ -84,7 +115,10 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             name = safe_name(query.get('name', ['previs.mp4'])[0])
             if not name.lower().endswith('.mp4'):
                 name += '.mp4'
-            fps = max(1, min(120, int(float(query.get('fps', ['30'])[0]))))
+            try:
+                fps = max(1, min(120, int(float(query.get('fps', ['30'])[0]))))
+            except ValueError:
+                return self.reply(400, {'error': 'bad fps'})
             target_dir = os.path.join(ROOT, FOLDERS['export'])
             os.makedirs(target_dir, exist_ok=True)
             path = unique(os.path.join(target_dir, name))
@@ -97,12 +131,13 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                 stdin=subprocess.PIPE, stderr=log, creationflags=subprocess.CREATE_NO_WINDOW if WINDOWS else 0)
             job = uuid.uuid4().hex
             with JOBS_LOCK:
-                JOBS[job] = {'proc': proc, 'path': path, 'log': log}
+                JOBS[job] = {'proc': proc, 'path': path, 'log': log, 'seen': time.time()}
             return self.reply(200, {'job': job})
         with JOBS_LOCK:
             info = JOBS.get(query.get('job', [''])[0])
         if not info:
             return self.reply(404, {'error': 'unknown job'})
+        info['seen'] = time.time()
         proc = info['proc']
         if action == 'frame':
             try:
@@ -111,16 +146,18 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                 return self.reply(500, {'error': 'ffmpeg abgebrochen'})
             return self.reply(200, {'ok': True})
         if action in ('finish', 'cancel'):
-            with JOBS_LOCK:
-                JOBS.pop(query.get('job', [''])[0], None)
+            job = query.get('job', [''])[0]
             if action == 'cancel':
-                proc.kill()
-                info['log'].close()
-                if os.path.exists(info['path']):
-                    os.remove(info['path'])
+                drop_job(job)
                 return self.reply(200, {'ok': True})
-            proc.stdin.close()
-            code = proc.wait(timeout=600)
+            with JOBS_LOCK:
+                JOBS.pop(job, None)
+            try:
+                proc.stdin.close()
+                code = proc.wait(timeout=600)
+            except (OSError, subprocess.TimeoutExpired):
+                proc.kill()
+                code = -1
             info['log'].close()
             if code != 0 or not os.path.exists(info['path']):
                 return self.reply(500, {'error': f'ffmpeg Fehler {code}'})
@@ -128,6 +165,15 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         return self.reply(404, {'error': 'not found'})
 
     def do_POST(self):
+        try:
+            self.handle_post()
+        except Exception as err:  # ungültige Eingaben dürfen nur diese eine Anfrage scheitern lassen
+            try:
+                self.reply(400, {'error': f'bad request: {err}'})
+            except OSError:
+                pass
+
+    def handle_post(self):
         # Nur die eigene Seite darf speichern: eigener Header und passende Herkunft
         if self.headers.get('X-Previs') != '1':
             return self.reply(403, {'error': 'forbidden'})
@@ -176,5 +222,6 @@ class Handler(http.server.SimpleHTTPRequestHandler):
 
 
 os.chdir(ROOT)
+threading.Thread(target=reap_jobs, daemon=True).start()
 print(f'Previs läuft auf http://127.0.0.1:{PORT}/', flush=True)
 http.server.ThreadingHTTPServer(('127.0.0.1', PORT), Handler).serve_forever()

@@ -134,8 +134,6 @@ export class WorkView {
   applyGizmoMode() {
     const sel = this.app.state.selection;
     if (!sel) return;
-    const rotate = this.gizmo.getMode() === 'rotate';
-    const st = sel.kind === 'figure' ? this.app.shot.figs[sel.id] : null;
     this.gizmo.showX = this.gizmo.getMode() === 'translate';
     this.gizmo.showZ = this.gizmo.getMode() === 'translate';
     this.gizmo.showY = this.gizmo.getMode() === 'rotate' || sel.kind === 'object';
