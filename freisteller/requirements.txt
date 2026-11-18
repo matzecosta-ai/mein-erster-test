@@ -1,0 +1,9 @@
+# torch und torchvision installiert "Freisteller starten.bat" passend zur NVIDIA-Grafikkarte
+transformers>=4.45,<5
+huggingface_hub
+safetensors
+timm
+kornia
+einops
+numpy
+imageio-ffmpeg>=0.5

@@ -15,3 +15,7 @@ cd android
 ```
 
 Daten: [v6.bvg.transport.rest](https://v6.bvg.transport.rest)
+
+## Freisteller (Video mit Alphakanal)
+
+`freisteller/`: Windows-Programm, das ganze Videoclips per KI freistellt und als ProRes 4444 mit Alpha für DaVinci Resolve speichert. Siehe `freisteller/README.md`.
