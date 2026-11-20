@@ -1,7 +1,7 @@
 # Vektor-Quest 🚀
 
-Lern-App für **Analytische Geometrie & Lineare Algebra**, das dritte große Gebiet neben Analysis und Stochastik.
-Sie stellt spielerisch Aufgaben, und wer nicht weiterkommt, bekommt die Hilfe in drei Stufen:
+Lern-App zum **Vektorrechnen** (Analytische Geometrie, Grundkurs), dem dritten großen Gebiet neben Analysis und Stochastik.
+Sie stellt spielerisch Rechenaufgaben, und wer nicht weiterkommt, bekommt die Hilfe in drei Stufen:
 
 1. 💡 **Hinweis 1**: welche Idee oder Formel man braucht
 2. 💡 **Hinweis 2**: der erste Rechenschritt mit den konkreten Zahlen
@@ -9,18 +9,18 @@ Sie stellt spielerisch Aufgaben, und wer nicht weiterkommt, bekommt die Hilfe in
 
 Jede Aufgabe wird zufällig neu erzeugt, die Übung geht also nie aus.
 
-## Themen (8 Welten, 47 Aufgabentypen)
+## Themen: nur Grundkurs, nur Rechenaufgaben (5 Welten, 23 Aufgabentypen)
 
 | Welt | Inhalte |
 |---|---|
-| ➡️ Vektoren – Grundlagen | Verbindungsvektor, Länge, Mittelpunkt, Schwerpunkt, Parallelogramm, Kollinearität |
-| 📐 Skalarprodukt & Winkel | Skalarprodukt, Orthogonalität, fehlende Koordinate, Winkel, rechter Winkel im Dreieck |
-| ✖️ Kreuzprodukt, Fläche & Volumen | Kreuzprodukt, Dreieck, Parallelogramm, Spat, Pyramide |
-| 📏 Geraden | Punkt berechnen, Gerade durch 2 Punkte, Punktprobe, Spurpunkte, Lagebeziehung, Schnittpunkt |
-| 🟦 Ebenen | Koordinatenform, Normalenvektor, Parameter- → Koordinatenform, Ebene durch 3 Punkte, Punktprobe, Spurpunkte |
-| 🔀 Lage, Schnitte & Winkel | Gerade–Ebene (Lage, Schnittpunkt, Winkel), Ebene–Ebene (Lage, Winkel) |
-| 📍 Abstände & Spiegelung | Punkt–Punkt, Punkt–Ebene (HNF), Lotfußpunkt, Spiegelpunkt, Punkt–Gerade, parallele Ebenen |
-| 🧮 LGS & Matrizen | LGS 2×2, Gauß 3×3, Lösbarkeit, Determinanten (2×2, Sarrus), Matrix·Vektor, Matrixprodukt |
+| ➡️ Vektoren rechnen | Addieren & Vervielfachen, Verbindungsvektor, Länge, Abstand zweier Punkte, Mittelpunkt, Schwerpunkt, Parallelogramm ergänzen, Vielfaches bestimmen |
+| 📐 Skalarprodukt & Winkel | Skalarprodukt, fehlende Koordinate für senkrechte Vektoren, Winkel zwischen Vektoren, Innenwinkel im Dreieck |
+| 📏 Geraden | Punkt berechnen, Richtungsvektor aus zwei Punkten, Punktprobe (Parameter bestimmen), Spurpunkt, Schnittpunkt, Schnittwinkel |
+| 🟦 Ebenen (Parameterform) | Punkt berechnen, Punktprobe (r und s bestimmen), Schnittpunkt Gerade–Ebene |
+| 🧮 LGS lösen (Gauß) | LGS mit 2 und 3 Unbekannten |
+
+Nicht enthalten, weil Leistungskurs-Stoff: Kreuzprodukt, Koordinaten-/Normalenform, Abstände zu Geraden und Ebenen,
+Spiegelungen, Winkel mit Ebenen, Determinanten, Matrizen. Es gibt keine Ja/Nein- oder Auswahlfragen, jede Aufgabe wird gerechnet.
 
 Jede Aufgabe hat einen Schwierigkeitsgrad von ● bis ●●●.
 

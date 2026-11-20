@@ -1,6 +1,6 @@
 # mein-erster-test
 
-**Neu: [Vektor-Quest](vektor-quest/)**, eine Lern-App für Analytische Geometrie mit Hinweisen und Lösungswegen (Android-APK + Web-App).
+**Neu: [Vektor-Quest](vektor-quest/)**, eine Lern-App zum Vektorrechnen (Grundkurs) mit Hinweisen und Lösungswegen (Android-APK + Web-App).
 
 ---
 
