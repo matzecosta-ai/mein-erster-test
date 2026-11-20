@@ -4,6 +4,11 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#5b3cc4">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Vektor-Quest">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
 <title>Vektor-Quest</title>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
@@ -17,7 +22,7 @@
     <div class="hero-top">
       <div>
         <div class="app-name">Vektor-Quest</div>
-        <div class="sub">Vektorrechnung · Grundkurs</div>
+        <div class="sub">Analytische Geometrie · Grundkurs</div>
       </div>
       <button class="streak" id="streak-btn" aria-label="Lerntage am Stück">🔥 <span id="streak-days">0</span></button>
     </div>
@@ -30,6 +35,12 @@
       </div>
     </div>
   </header>
+
+  <div class="abi">
+    <div class="abi-row"><b>🎓 Abi-Fortschritt</b><b id="abi-pct">0 %</b></div>
+    <div class="abi-bar"><div id="abi-fill"></div></div>
+    <small id="abi-text"></small>
+  </div>
 
   <div class="modes">
     <button class="mode daily" id="btn-daily">

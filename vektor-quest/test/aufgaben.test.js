@@ -7,7 +7,6 @@ const fmtAns = (t) => {
   return t.answer.map(String);
 };
 for (const T of A.TYPES) {
-  if (A.generate(T.id).type === 'choice') { console.log('AUSWAHLFRAGE (soll es nicht mehr geben)', T.id); fails++; }
   const choiceSeen = new Set();
   for (let i = 0; i < 400; i++) {
     let t;

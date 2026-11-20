@@ -1,7 +1,7 @@
 {
-  "name": "Vektor-Quest – Vektorrechnung",
+  "name": "Vektor-Quest – Analytische Geometrie",
   "short_name": "Vektor-Quest",
-  "description": "Spielerisch Vektorrechnung für den Grundkurs üben – mit Hinweisen und Lösungswegen.",
+  "description": "Spielerisch Analytische Geometrie (Grundkurs) üben – mit Hinweisen und Lösungswegen.",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",

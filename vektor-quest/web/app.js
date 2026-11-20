@@ -18,7 +18,7 @@ const yesterday = () => { const d = new Date(); d.setDate(d.getDate() - 1); retu
 
 // ---------- Level ----------
 const TITLES = [['🐣', 'Vektor-Neuling'], ['🐥', 'Pfeil-Schubser'], ['🦊', 'Geraden-Gärtner'], ['🦉', 'Ebenen-Entdecker'], ['🐬', 'Skalar-Surfer'],
-  ['🦅', 'Kreuzprodukt-Kapitän'], ['🐉', 'Abstands-Ass'], ['🧙', 'Raum-Ritter'], ['🚀', 'Geometrie-Guru'], ['👑', 'Matrix-Meister']];
+  ['🦅', 'Winkel-Wächter'], ['🐉', 'Pyramiden-Profi'], ['🧙', 'Raum-Ritter'], ['🚀', 'Geometrie-Guru'], ['👑', 'Abi-Champion']];
 function levelInfo(xp) {
   let lvl = 1, need = 60, rest = xp;
   while (rest >= need) { rest -= need; lvl++; need = 60 + (lvl - 1) * 30; }
@@ -45,7 +45,12 @@ const BADGES = [
   ['explorer', '🧭', 'Weltenbummler', 'In jeder Themenwelt einen Stern', s => A.CHAPTERS.every(c => stars(c.id) >= 1)],
   ['master', '🌟', 'Themen-Meister', 'Eine Themenwelt mit 3 Sternen', s => A.CHAPTERS.some(c => stars(c.id) >= 3)],
   ['allmaster', '👑', 'Großmeister', 'Alle Themenwelten mit 3 Sternen', s => A.CHAPTERS.every(c => stars(c.id) >= 3)],
+  ['abi50', '📘', 'Halbzeit', 'Abi-Fortschritt 50 %', s => abiInfo().pct >= 50],
+  ['abi100', '🎓', 'Abi-fit', 'Jeden Aufgabentyp sicher beherrscht', s => abiInfo().pct >= 100],
 ];
+// Ein Aufgabentyp gilt als „sicher“, wenn er 3-mal ohne kompletten Lösungsweg gelöst wurde.
+const MASTER = 3;
+function abiInfo() { const done = A.TYPES.filter(t => (S.byType[t.id] || 0) >= MASTER).length; return { done, total: A.TYPES.length, pct: Math.round(100 * done / A.TYPES.length) }; }
 function stars(ch) { const c = S.byCh[ch] || 0; return c >= 30 ? 3 : c >= 12 ? 2 : c >= 3 ? 1 : 0; }
 const starHtml = k => `<span class="stars">${'★'.repeat(k)}<span class="off">${'★'.repeat(3 - k)}</span></span>`;
 const lvlHtml = k => `<span class="lvl-dots">${'●'.repeat(k)}<span class="off">${'●'.repeat(3 - k)}</span></span>`;
@@ -113,6 +118,9 @@ function renderHome() {
     box.appendChild(b);
   }
   $('#badge-count').textContent = `${S.badges.length}/${BADGES.length}`;
+  const ab = abiInfo();
+  $('#abi-pct').textContent = ab.pct + ' %'; $('#abi-fill').style.width = ab.pct + '%';
+  $('#abi-text').textContent = `${ab.done} von ${ab.total} Aufgabentypen sicher (je ${MASTER}× gelöst)`;
 }
 
 function openChapter(id) {
@@ -122,7 +130,7 @@ function openChapter(id) {
   $('#ch-desc').innerHTML = `${c.desc}<br>${starHtml(stars(id))} &nbsp;${S.byCh[id] || 0} gelöst`;
   const box = $('#ch-types'); box.innerHTML = '';
   for (const t of A.TYPES.filter(t => t.ch === id).sort((a, b) => a.lvl - b.lvl)) {
-    const r = el('button', 'type-row', `${lvlHtml(t.lvl)}<span class="tn">${t.name}</span><span class="tc">${S.byType[t.id] ? '✓ ' + S.byType[t.id] : ''}</span>`);
+    const r = el('button', 'type-row', `${lvlHtml(t.lvl)}<span class="tn">${t.name}</span><span class="tc">${(S.byType[t.id] || 0) >= MASTER ? '🎓 ' : ''}${S.byType[t.id] ? '✓ ' + S.byType[t.id] : ''}</span>`);
     r.onclick = () => startRound({ mode: 'type', pool: [t.id] });
     box.appendChild(r);
   }
@@ -324,7 +332,7 @@ function onHelp() {
     S.solutions++; checkBadges(); save();
     box.appendChild(el('div', 'hint sol', `<div class="hint-title">📖 Lösungsweg Schritt für Schritt</div><ol>${task.steps.map(s => `<li>${s}</li>`).join('')}</ol>`));
     if (round.mode === 'daily') { /* Aufgabe zählt als gesehen, Ergebnis wird beim Weitergehen notiert */ }
-    if (!ts.done) feedback('info', 'Jetzt du: Tipp das Ergebnis ein, damit es sitzt – oder geh direkt weiter.');
+    if (!ts.done) feedback('info', task.type === 'choice' ? 'Jetzt du: Wähle die richtige Antwort – oder geh direkt weiter.' : 'Jetzt du: Tipp das Ergebnis ein, damit es sitzt – oder geh direkt weiter.');
   }
   box.lastElementChild.scrollIntoView({ behavior: 'smooth', block: 'start' });
   updateButtons();

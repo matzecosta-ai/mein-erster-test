@@ -72,6 +72,13 @@ button { font: inherit; color: inherit; cursor: pointer; border: 0; background: 
 .badges-btn { width: 100%; margin-top: 12px; padding: 14px; border-radius: 16px; background: var(--card); font-weight: 700; box-shadow: var(--shadow); }
 .foot { text-align: center; color: var(--muted); font-size: .8rem; margin-top: 18px; }
 
+/* Abi-Fortschritt */
+.abi { background: var(--card); border-radius: 18px; padding: 12px 14px; margin-top: 12px; box-shadow: var(--shadow); }
+.abi-row { display: flex; justify-content: space-between; }
+.abi-bar { height: 10px; background: var(--line); border-radius: 99px; overflow: hidden; margin: 6px 0 4px; }
+#abi-fill { height: 100%; width: 0; background: linear-gradient(90deg, #17915a, #4fd38e); border-radius: 99px; transition: width .6s ease; }
+.abi small { color: var(--muted); font-size: .8rem; }
+
 /* ---------- Topbar ---------- */
 .topbar { display: flex; align-items: center; gap: 10px; min-height: 44px; }
 .topbar h1 { font-size: 1.15rem; margin: 0; }

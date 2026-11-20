@@ -1,4 +1,4 @@
-// Vektor-Quest: Aufgaben-Generatoren für Analytische Geometrie & Lineare Algebra.
+// Vektor-Quest: Aufgaben-Generatoren für Analytische Geometrie (Grundkurs).
 // Jede Aufgabe liefert: Fragetext, Antworttyp, richtige Antwort, zwei Hinweise
 // und einen ausführlichen Lösungsweg. Läuft im Browser und in Node (für Tests).
 (function (root) {
@@ -19,8 +19,6 @@ function seeded(seed) { // mulberry32
 }
 
 // ---------- Vektor-Rechnung ----------
-const det2 = M => M[0][0] * M[1][1] - M[0][1] * M[1][0];
-const det3 = M => M[0][0] * (M[1][1] * M[2][2] - M[1][2] * M[2][1]) - M[0][1] * (M[1][0] * M[2][2] - M[1][2] * M[2][0]) + M[0][2] * (M[1][0] * M[2][1] - M[1][1] * M[2][0]);
 const V = {
   add: (a, b) => a.map((x, i) => x + b[i]),
   sub: (a, b) => a.map((x, i) => x - b[i]),
@@ -37,6 +35,7 @@ function rvnz(lo = -4, hi = 4) { let v; do { v = rv(lo, hi); } while (V.zero(v))
 function rvNotPar(u, lo = -4, hi = 4) { let v; do { v = rvnz(lo, hi); } while (V.par(u, v)); return v; }
 function gcd(a, b) { a = Math.abs(a); b = Math.abs(b); while (b) [a, b] = [b, a % b]; return a; }
 function gcdAll(v) { return v.reduce((g, x) => gcd(g, x), 0); }
+function reduceVec(v) { const g = gcdAll(v) || 1; let w = v.map(x => x / g); const f = w.find(x => x !== 0); if (f < 0) w = w.map(x => -x); return w.map(x => x || 0); }
 const deg = r => r * 180 / Math.PI;
 // Pythagoreische Quadrupel: Normalenvektoren mit ganzzahliger Länge
 const QUADS = [[1, 2, 2, 3], [2, 3, 6, 7], [1, 4, 8, 9], [4, 4, 7, 9], [2, 6, 9, 11], [6, 6, 7, 11]];
@@ -107,19 +106,20 @@ function lenSteps(v, name = 'v') {
 }
 
 // ---------- Kapitel ----------
-const CHAPTERS = [ // Inhalte des Grundkurses (grundlegendes Niveau)
-  { id: 'vek', name: 'Vektoren rechnen', icon: '➡️', desc: 'Addieren, Vervielfachen, Verbindungsvektor, Länge, Mittelpunkt' },
-  { id: 'skp', name: 'Skalarprodukt & Winkel', icon: '📐', desc: 'Skalarprodukt, senkrechte Vektoren, Winkel im Dreieck' },
-  { id: 'ger', name: 'Geraden', icon: '📏', desc: 'Parameterform, Punktprobe, Spurpunkt, Schnittpunkt, Schnittwinkel' },
-  { id: 'ebe', name: 'Ebenen (Parameterform)', icon: '🟦', desc: 'Punkte, Punktprobe, Schnittpunkt mit einer Geraden' },
-  { id: 'lgs', name: 'LGS lösen (Gauß)', icon: '🧮', desc: 'Gleichungssysteme mit 2 und 3 Unbekannten' },
+const CHAPTERS = [ // nur Grundkurs-Inhalte
+  { id: 'vek', name: 'Vektoren – Grundlagen', icon: '➡️', desc: 'Rechnen mit Vektoren, Länge, Abstand, Mittelpunkt, Parallelogramm' },
+  { id: 'skp', name: 'Skalarprodukt & Winkel', icon: '📐', desc: 'Orthogonalität, Winkel zwischen Vektoren, Winkel im Dreieck' },
+  { id: 'fig', name: 'Figuren & Körper', icon: '🔺', desc: 'Dreiecke & Vierecke untersuchen, Fläche, Umfang, Pyramide' },
+  { id: 'ger', name: 'Geraden', icon: '📏', desc: 'Parameterform, Punktprobe, Spurpunkt, Lage, Schnittpunkt, Winkel' },
+  { id: 'ebe', name: 'Ebenen (Parameterform)', icon: '🟦', desc: 'Ebene aufstellen, Punkte berechnen, Punktprobe' },
+  { id: 'lgs', name: 'LGS lösen (Gauß)', icon: '🧮', desc: 'Gleichungssysteme mit 2 und 3 Unbekannten, Lösbarkeit' },
 ];
 
 const TYPES = [];
 function def(o) { TYPES.push(o); }
 
 // =====================================================================
-// Kapitel 1: Vektoren rechnen
+// Kapitel 1: Vektoren – Grundlagen
 // =====================================================================
 def({ id: 'vek_ab', ch: 'vek', name: 'Verbindungsvektor', lvl: 1, gen() {
   const A = rv(-6, 6), B = rv(-6, 6), AB = V.sub(B, A);
@@ -218,6 +218,29 @@ def({ id: 'vek_schwerpunkt', ch: 'vek', name: 'Schwerpunkt eines Dreiecks', lvl:
   };
 } });
 
+def({ id: 'vek_kollinear', ch: 'vek', name: 'Liegen drei Punkte auf einer Geraden?', lvl: 2, gen() {
+  const A = rv(-5, 5), u = rvnz(-3, 3), B = V.add(A, u);
+  const yes = R.chance(0.5);
+  const k = R.pick([-2, 2, 3, -1]);
+  let C = V.add(A, V.mul(k, u));
+  if (!yes) { const i = R.int(0, 2); C = C.slice(); C[i] += R.nz(-2, 2); }
+  const AC = V.sub(C, A);
+  const ratios = AC.map((x, i) => u[i] === 0 ? (x === 0 ? 'beliebig (0 = 0)' : `${n(x)} ≠ 0 → unmöglich`) : `${n(x)} : ${p(u[i])} = ${n(x / u[i])}`);
+  return {
+    q: `Liegen die Punkte ${pt('A', A)}, ${pt('B', B)} und ${pt('C', C)} auf einer gemeinsamen Geraden?`,
+    type: 'choice', options: ['Ja', 'Nein'], answer: yes ? 0 : 1,
+    hints: [
+      `Drei Punkte liegen auf einer Geraden, wenn ${ov('AC')} ein Vielfaches von ${ov('AB')} ist (die Vektoren sind dann „kollinear“).`,
+      `${ov('AB')} = ${vec(u)}, ${ov('AC')} = ${vec(AC)}. Gibt es eine Zahl k mit ${ov('AC')} = k·${ov('AB')}? Teile Zeile für Zeile.`,
+    ],
+    steps: [
+      `Berechne beide Verbindungsvektoren: ${ov('AB')} = ${vec(u)}, ${ov('AC')} = ${vec(AC)}.`,
+      `Prüfe, ob in jeder Zeile derselbe Faktor k herauskommt:<ul class="calc">${ratios.map(r => `<li>${r}</li>`).join('')}</ul>`,
+      yes ? `Überall passt k = ${n(k)}. Also ist ${ov('AC')} = ${n(k)}·${ov('AB')}.` : `Die Faktoren stimmen nicht überein – es gibt kein passendes k.`,
+      res(yes ? 'Ja, A, B und C liegen auf einer Geraden.' : 'Nein, die Punkte liegen nicht auf einer Geraden.'),
+    ],
+  };
+} });
 
 // =====================================================================
 // Kapitel 2: Skalarprodukt & Winkel
@@ -239,6 +262,25 @@ def({ id: 'skp_dot', ch: 'skp', name: 'Skalarprodukt berechnen', lvl: 1, gen() {
   };
 } });
 
+def({ id: 'skp_orth', ch: 'skp', name: 'Sind die Vektoren orthogonal?', lvl: 1, gen() {
+  const a = rvnz(-4, 4); let b;
+  const yes = R.chance(0.5);
+  if (yes) { do { b = reduceVec(V.cross(a, rvNotPar(a, -2, 2))); if (R.chance(0.5)) b = V.mul(-1, b); } while (V.zero(b) || Math.max(...b.map(Math.abs)) > 12); }
+  else { do { b = rvnz(-5, 5); } while (V.dot(a, b) === 0); }
+  return {
+    q: `Stehen ${ov('a')} = ${vec(a)} und ${ov('b')} = ${vec(b)} senkrecht (orthogonal) aufeinander?`,
+    type: 'choice', options: ['Ja, orthogonal', 'Nein'], answer: yes ? 0 : 1,
+    hints: [
+      `Zwei Vektoren sind genau dann orthogonal, wenn ihr <b>Skalarprodukt 0</b> ist.`,
+      `Rechne ${a.map((x, i) => `${p(x)}·${p(b[i])}`).join(' + ')} aus. Kommt 0 heraus?`,
+    ],
+    steps: [
+      `Regel: ${ov('a')} ⊥ ${ov('b')} ⇔ ${ov('a')} · ${ov('b')} = 0`,
+      dotSteps(a, b),
+      res(yes ? 'Das Skalarprodukt ist 0 → ja, orthogonal.' : `Das Skalarprodukt ist ${n(V.dot(a, b))} ≠ 0 → nicht orthogonal.`),
+    ],
+  };
+} });
 
 def({ id: 'skp_fehlend', ch: 'skp', name: 'Fehlende Koordinate für Orthogonalität', lvl: 2, gen() {
   let a, b1, b2, k;
@@ -285,9 +327,39 @@ def({ id: 'skp_winkel', ch: 'skp', name: 'Winkel zwischen zwei Vektoren', lvl: 2
   };
 } });
 
+def({ id: 'skp_rechterwinkel', ch: 'skp', name: 'Rechter Winkel im Dreieck', lvl: 3, gen() {
+  const names = ['A', 'B', 'C'];
+  const which = R.int(0, 3); // 3 = keiner
+  let P = rv(-4, 4), u, v;
+  if (which < 3) {
+    do { u = rvnz(-3, 3); v = reduceVec(V.cross(u, rvNotPar(u, -2, 2))); } while (Math.max(...v.map(Math.abs)) > 6);
+  } else {
+    do { u = rvnz(-3, 3); v = rvNotPar(u, -3, 3); } while (V.dot(u, v) === 0 || V.dot(u, V.sub(v, u)) === 0 || V.dot(v, V.sub(u, v)) === 0);
+  }
+  const pts = [];
+  const idx = which < 3 ? which : 0;
+  pts[idx] = P; pts[(idx + 1) % 3] = V.add(P, u); pts[(idx + 2) % 3] = V.add(P, v);
+  const [A, B, C] = pts;
+  const AB = V.sub(B, A), AC = V.sub(C, A), BA = V.sub(A, B), BC = V.sub(C, B), CA = V.sub(A, C), CB = V.sub(B, C);
+  const dA = V.dot(AB, AC), dB = V.dot(BA, BC), dC = V.dot(CA, CB);
+  return {
+    q: `Gegeben ist das Dreieck mit ${pt('A', A)}, ${pt('B', B)}, ${pt('C', C)}.<br>An welcher Ecke hat das Dreieck einen rechten Winkel?`,
+    type: 'choice', options: ['bei A', 'bei B', 'bei C', 'nirgends'], answer: which,
+    hints: [
+      `Ein rechter Winkel bei einer Ecke heißt: Die beiden Seiten, die dort losgehen, sind orthogonal → Skalarprodukt = 0.`,
+      `Prüfe ${ov('AB')}·${ov('AC')} (Ecke A), ${ov('BA')}·${ov('BC')} (Ecke B) und ${ov('CA')}·${ov('CB')} (Ecke C).`,
+    ],
+    steps: [
+      `Ecke A: ${ov('AB')} = ${vec(AB)}, ${ov('AC')} = ${vec(AC)} → Skalarprodukt = ${n(dA)}`,
+      `Ecke B: ${ov('BA')} = ${vec(BA)}, ${ov('BC')} = ${vec(BC)} → Skalarprodukt = ${n(dB)}`,
+      `Ecke C: ${ov('CA')} = ${vec(CA)}, ${ov('CB')} = ${vec(CB)} → Skalarprodukt = ${n(dC)}`,
+      res(which < 3 ? `Bei ${names[which]} ist das Skalarprodukt 0 → rechter Winkel bei ${names[which]}.` : 'Kein Skalarprodukt ist 0 → kein rechter Winkel.'),
+    ],
+  };
+} });
 
 // =====================================================================
-// Kapitel 3: Geraden
+// Kapitel: Geraden
 // =====================================================================
 def({ id: 'ger_punkt', ch: 'ger', name: 'Punkt auf der Geraden berechnen', lvl: 1, gen() {
   const A = rv(-5, 5), u = rvnz(-4, 4), t = R.nz(-3, 3), P = V.add(A, V.mul(t, u));
@@ -326,6 +398,31 @@ def({ id: 'ger_zweipunkte', ch: 'ger', name: 'Gerade durch zwei Punkte', lvl: 1,
   };
 } });
 
+def({ id: 'ger_punktprobe', ch: 'ger', name: 'Punktprobe Gerade', lvl: 1, gen() {
+  const A = rv(-5, 5), u = rvnz(-3, 3), t = R.nz(-3, 3);
+  const yes = R.chance(0.5);
+  let P = V.add(A, V.mul(t, u));
+  if (!yes) { let i; do { i = R.int(0, 2); } while (u[i] === 0 && u.filter(x => x !== 0).length === 3); P = P.slice(); P[i] += R.nz(-2, 2); }
+  const rows = [0, 1, 2].map(i => {
+    if (u[i] === 0) return `${n(P[i])} = ${n(A[i])}${P[i] === A[i] ? ' ✓ (passt für jedes t)' : ' ✗ (Widerspruch!)'}`;
+    const ti = (P[i] - A[i]) / u[i];
+    return `${n(P[i])} = ${n(A[i])} + ${ct(u[i])}t ⇒ t = ${frac(P[i] - A[i], u[i])}`;
+  });
+  return {
+    q: `Liegt der Punkt ${pt('P', P)} auf der Geraden ${lineEq('g', A, u)}?`,
+    type: 'choice', options: ['Ja', 'Nein'], answer: yes ? 0 : 1,
+    hints: [
+      `Setze P mit der Geradengleichung gleich. Dann bekommst du drei Gleichungen für t – eine pro Zeile.`,
+      `Löse jede Zeile nach t auf. Liegt P auf g, muss überall <b>dasselbe</b> t herauskommen.`,
+    ],
+    steps: [
+      `Ansatz: ${vec(P)} = ${vec(A)} + t·${vec(u)}`,
+      `Zeile für Zeile:<ul class="calc">${rows.map(r => `<li>${r}</li>`).join('')}</ul>`,
+      yes ? `Alle Zeilen liefern t = ${n(t)}.` : `Die Zeilen liefern kein gemeinsames t → Widerspruch.`,
+      res(yes ? `Ja, P liegt auf g (für t = ${n(t)}).` : 'Nein, P liegt nicht auf g.'),
+    ],
+  };
+} });
 
 def({ id: 'ger_spur', ch: 'ger', name: 'Spurpunkt einer Geraden', lvl: 2, gen() {
   const ax = R.int(0, 2); const planes = ['x₂x₃-Ebene', 'x₁x₃-Ebene', 'x₁x₂-Ebene'];
@@ -407,6 +504,21 @@ function lineLineSteps(A, u, B, w) {
   return { steps, kind: 3 };
 }
 
+def({ id: 'ger_lage', ch: 'ger', name: 'Lagebeziehung zweier Geraden', lvl: 2, gen() {
+  const kind = R.int(0, 3);
+  const { A, u, B, w } = lineLineCase(kind);
+  const sol = lineLineSteps(A, u, B, w);
+  const opts = ['identisch', 'echt parallel', 'schneiden sich', 'windschief'];
+  return {
+    q: `Wie liegen die Geraden zueinander?<br>${lineEq('g', A, u, 's')}<br>${lineEq('h', B, w, 't')}`,
+    type: 'choice', options: opts, answer: sol.kind,
+    hints: [
+      `Immer zuerst die <b>Richtungsvektoren</b> vergleichen: Sind sie Vielfache voneinander? Ja → parallel oder identisch. Nein → Schnitt oder windschief.`,
+      V.par(u, w) ? `Die Richtungsvektoren sind Vielfache. Jetzt Punktprobe: Liegt ${pt('B', B)} auf g?` : `Die Richtungsvektoren sind <b>keine</b> Vielfachen. Setze g = h und löse das LGS mit zwei Zeilen, dann Probe mit der dritten.`,
+    ],
+    steps: [...sol.steps, res(`Die Geraden sind ${opts[sol.kind]}${sol.kind === 2 ? '.' : '.'}`)],
+  };
+} });
 
 def({ id: 'ger_schnitt', ch: 'ger', name: 'Schnittpunkt zweier Geraden', lvl: 3, gen() {
   const { A, u, B, w, S } = lineLineCase(2);
@@ -422,6 +534,9 @@ def({ id: 'ger_schnitt', ch: 'ger', name: 'Schnittpunkt zweier Geraden', lvl: 3,
   };
 } });
 
+// =====================================================================
+// Abstand (gehört zu Kapitel 1)
+// =====================================================================
 def({ id: 'abs_pp', ch: 'vek', name: 'Abstand zweier Punkte', lvl: 1, gen() {
   const A = rv(-5, 5); const v = R.chance(0.5) ? niceNormal().n : rvnz(-5, 5); const B = V.add(A, v);
   const s = V.len2(v), L = Math.sqrt(s), exact = Number.isInteger(L);
@@ -447,7 +562,7 @@ def({ id: 'abs_pp', ch: 'vek', name: 'Abstand zweier Punkte', lvl: 1, gen() {
 
 
 // =====================================================================
-// Kapitel 5: LGS lösen (Gauß)
+// LGS lösen (Gauß)
 // =====================================================================
 function gaussSteps(Ab, vars) {
   const M = Ab.map(r => r.slice()), m = M.length, nn = vars.length, steps = [];
@@ -486,6 +601,8 @@ function gaussSteps(Ab, vars) {
 function lgsText(A, b, vars) {
   return `<div class="lgs">${A.map((row, i) => `<div>${['I', 'II', 'III'][i]}: &nbsp;${lin(row, vars)} = ${n(b[i])}</div>`).join('')}</div>`;
 }
+const det2 = M => M[0][0] * M[1][1] - M[0][1] * M[1][0];
+const det3 = M => M[0][0] * (M[1][1] * M[2][2] - M[1][2] * M[2][1]) - M[0][1] * (M[1][0] * M[2][2] - M[1][2] * M[2][0]) + M[0][2] * (M[1][0] * M[2][1] - M[1][1] * M[2][0]);
 
 def({ id: 'lgs_2', ch: 'lgs', name: 'LGS mit 2 Unbekannten', lvl: 1, gen() {
   let A; do { A = [[R.nz(-5, 5), R.nz(-5, 5)], [R.nz(-5, 5), R.nz(-5, 5)]]; } while (det2(A) === 0);
@@ -518,13 +635,39 @@ def({ id: 'lgs_3', ch: 'lgs', name: 'LGS mit 3 Unbekannten (Gauß)', lvl: 2, gen
   };
 } });
 
+def({ id: 'lgs_art', ch: 'lgs', name: 'Wie viele Lösungen hat das LGS?', lvl: 3, gen() {
+  const kind = R.int(0, 2);
+  let A, b;
+  if (kind === 0) {
+    do { A = [0, 1, 2].map(() => [R.int(-3, 3), R.int(-3, 3), R.int(-3, 3)]); } while (det3(A) === 0);
+    const x = rv(-3, 3); b = A.map(r => V.dot(r, x));
+  } else {
+    let r1, r2; do { r1 = rvnz(-3, 3); r2 = rvnz(-3, 3); } while (V.par(r1, r2) || r1[0] === 0);
+    const k1 = R.pick([1, -1, 2]), k2 = R.pick([1, -1, 2]);
+    const r3 = V.add(V.mul(k1, r1), V.mul(k2, r2));
+    const x = rv(-3, 3), b1 = V.dot(r1, x), b2 = V.dot(r2, x);
+    A = [r1, r2, r3]; b = [b1, b2, k1 * b1 + k2 * b2 + (kind === 1 ? R.nz(-3, 3) : 0)];
+    if (V.zero(r3)) { A[2] = V.add(r1, r2); b[2] = b1 + b2 + (kind === 1 ? 1 : 0); }
+  }
+  const G = gaussSteps(A.map((r, i) => [...r, b[i]]), X);
+  const opts = ['genau eine Lösung', 'keine Lösung', 'unendlich viele Lösungen'];
+  return {
+    q: `Wie viele Lösungen hat dieses LGS?${lgsText(A, b, X)}`,
+    type: 'choice', options: opts, answer: G.kind,
+    hints: [
+      `Bring das LGS mit dem Gauß-Verfahren auf Stufenform und schau dir die letzte Zeile an.`,
+      `Letzte Zeile „0 = Zahl ≠ 0“ → keine Lösung. „0 = 0“ → unendlich viele. Sonst → genau eine Lösung.`,
+    ],
+    steps: [...G.steps, res(`Das LGS hat ${opts[G.kind]}.`)],
+  };
+} });
 
 
 
 
 
 // =====================================================================
-// Zusätzliche Grundkurs-Rechenaufgaben
+// Weitere Grundkurs-Aufgaben
 // =====================================================================
 function termK(k, name, first) { // „2a“, „− b“, „+ 3b“
   const a = Math.abs(k), c = a === 1 ? '' : String(a);
@@ -641,9 +784,6 @@ def({ id: 'ger_winkel', ch: 'ger', name: 'Schnittwinkel zweier Geraden', lvl: 2,
   };
 } });
 
-// =====================================================================
-// Ebenen in Parameterform
-// =====================================================================
 def({ id: 'ebe_punkt', ch: 'ebe', name: 'Punkt der Ebene berechnen', lvl: 1, gen() {
   const A = rv(-4, 4), u = rvnz(-3, 3), v = rvNotPar(u, -3, 3), r = R.nz(-2, 2), s = R.nz(-2, 2);
   const P = V.add(V.add(A, V.mul(r, u)), V.mul(s, v));
@@ -686,30 +826,237 @@ def({ id: 'ebe_rs', ch: 'ebe', name: 'Punktprobe Ebene: r und s bestimmen', lvl:
   };
 } });
 
-def({ id: 'ebe_schnitt', ch: 'ebe', name: 'Schnittpunkt Gerade – Ebene', lvl: 3, gen() {
-  let A, u, v, w, S, B, t0, M;
-  do {
-    A = rv(-3, 3); u = rvnz(-2, 2); v = rvNotPar(u, -2, 2); w = rvnz(-2, 2);
-    M = [0, 1, 2].map(i => [u[i], v[i], -w[i]]);
-  } while (det3(M) === 0);
-  const r0 = R.int(-2, 2), s0 = R.int(-2, 2); t0 = R.nz(-2, 2);
-  S = V.add(V.add(A, V.mul(r0, u)), V.mul(s0, v)); B = V.sub(S, V.mul(t0, w));
-  const c = V.sub(B, A);
-  const G = gaussSteps(M.map((row, i) => [...row, c[i]]), ['r', 's', 't']);
+// =====================================================================
+// Figuren & Körper (typische Grundkurs-Abituraufgaben)
+// =====================================================================
+// Zeilen orthogonaler Matrizen: paarweise senkrecht, alle gleich lang
+const OTRIPLES = [[[1, 2, 2], [2, 1, -2], [2, -2, 1], 3], [[2, 3, 6], [3, -6, 2], [6, 2, -3], 7], [[2, 6, 9], [6, 7, -6], [9, -6, 2], 11], [[1, 0, 0], [0, 1, 0], [0, 0, 1], 1]];
+function shuffleCoords() { // gleiche Permutation + Vorzeichen für mehrere Vektoren
+  const perm = R.shuffle([0, 1, 2]), sg = [0, 1, 2].map(() => R.pick([1, -1]));
+  return v => perm.map((j, i) => sg[i] * v[j]);
+}
+function orthoPair() { // u ⟂ v, |u| = |v|
+  const T = R.pick(OTRIPLES), f = shuffleCoords(), k = T[3] === 1 ? R.int(2, 5) : 1;
+  const [i, j] = R.shuffle([0, 1, 2]);
+  return { u: V.mul(k, f(T[i])), v: V.mul(k, f(T[j])), L: T[3] * k };
+}
+function equalNotOrtho(u) { // gleich lang wie u, nicht senkrecht, nicht parallel
+  let v, g = 0;
+  do { const f = shuffleCoords(); v = f(u); g++; } while ((V.dot(u, v) === 0 || V.par(u, v)) && g < 50);
+  return (V.dot(u, v) === 0 || V.par(u, v)) ? null : v;
+}
+const lenTxt = s => Number.isInteger(Math.sqrt(s)) ? String(Math.sqrt(s)) : rootStr(s);
+
+def({ id: 'fig_dreieck', ch: 'fig', name: 'Dreieck untersuchen', lvl: 2, gen() {
+  const kind = R.int(0, 3); // 0 gleichschenklig, 1 rechtwinklig, 2 beides, 3 weder noch
+  let P, u, v;
+  for (;;) {
+    P = rv(-4, 4);
+    if (kind === 2) { ({ u, v } = orthoPair()); }
+    else if (kind === 1) { const o = orthoPair(); u = o.u; v = V.mul(R.pick([2, 3]), o.v); if (Math.max(...v.map(Math.abs)) > 12) continue; }
+    else if (kind === 0) { u = rvnz(-3, 3); v = equalNotOrtho(u); if (!v) continue; }
+    else { u = rvnz(-4, 4); v = rvNotPar(u, -4, 4); }
+    const Q = [P, V.add(P, u), V.add(P, v)];
+    const s = [V.len2(V.sub(Q[1], Q[0])), V.len2(V.sub(Q[2], Q[1])), V.len2(V.sub(Q[2], Q[0]))];
+    const eq = s[0] === s[1] || s[1] === s[2] || s[0] === s[2], all = s[0] === s[1] && s[1] === s[2];
+    const m = Math.max(...s), right = s[0] + s[1] + s[2] === 2 * m;
+    const got = eq && right ? 2 : right ? 1 : eq ? 0 : 3;
+    if (all || got !== kind) continue;
+    var pts = R.shuffle(Q); break;
+  }
+  const [A, B, C] = pts;
+  const ab = V.len2(V.sub(B, A)), bc = V.len2(V.sub(C, B)), ac = V.len2(V.sub(C, A));
+  const L = [['AB', ab], ['BC', bc], ['AC', ac]], big = L.reduce((x, y) => y[1] > x[1] ? y : x), rest = L.filter(x => x !== big);
+  const opts = ['gleichschenklig (nicht rechtwinklig)', 'rechtwinklig (nicht gleichschenklig)', 'rechtwinklig und gleichschenklig', 'weder rechtwinklig noch gleichschenklig'];
+  const isEq = ab === bc || bc === ac || ab === ac, isRight = big[1] === rest[0][1] + rest[1][1];
   return {
-    q: `Berechne den Schnittpunkt S der Geraden ${lineEq('g', B, w)} mit der Ebene<br>${planeParam('E', A, u, v)}`,
-    type: 'vec', answer: S,
+    q: `Untersuche das Dreieck mit ${pt('A', A)}, ${pt('B', B)} und ${pt('C', C)}.<br>Welche Aussage trifft zu?`,
+    type: 'choice', options: opts, answer: kind,
     hints: [
-      `Setze Ebene und Gerade gleich. Bring alle Unbekannten (r, s, t) nach links und die Zahlen nach rechts. Du bekommst ein LGS mit drei Gleichungen.`,
-      `Das LGS lautet zeilenweise: ${[0, 1, 2].map(i => `${lin(M[i], ['r', 's', 't'])} = ${n(c[i])}`).join(' ; ')}. Löse es mit dem Gauß-Verfahren und setze t in die Gerade ein.`,
+      `Berechne alle drei Seitenlängen. <b>Gleichschenklig</b>: zwei Seiten sind gleich lang. <b>Rechtwinklig</b>: Satz des Pythagoras gilt (oder ein Skalarprodukt zweier Seiten ist 0).`,
+      `Es reicht, die <b>Quadrate</b> der Längen zu vergleichen: |${ov('AB')}|² = ${ab}, |${ov('BC')}|² = ${bc}, |${ov('AC')}|² = ${ac}. Gilt „größtes Quadrat = Summe der beiden anderen“?`,
     ],
     steps: [
-      `Gleichsetzen: ${vec(A)} + r·${vec(u)} + s·${vec(v)} = ${vec(B)} + t·${vec(w)}`,
-      `Umstellen (t-Term nach links, Stützvektor A nach rechts):<div class="lgs">${[0, 1, 2].map(i => `<div>${['I', 'II', 'III'][i]}: ${lin(M[i], ['r', 's', 't'])} = ${n(c[i])}</div>`).join('')}</div>`,
-      ...G.steps,
-      `t = ${n(t0)} in die Gerade einsetzen: ${vec(B)} + ${p(t0)}·${vec(w)} = ${vec(S)}`,
-      `<small>Kontrolle: r = ${n(r0)}, s = ${n(s0)} in die Ebene eingesetzt ergibt denselben Punkt.</small>`,
-      res(pt('S', S)),
+      `Seitenvektoren: ${ov('AB')} = ${vec(V.sub(B, A))}, ${ov('BC')} = ${vec(V.sub(C, B))}, ${ov('AC')} = ${vec(V.sub(C, A))}`,
+      `Längen: |${ov('AB')}| = ${sq(ab)}${lenTxt(ab) !== sq(ab) ? ' = ' + lenTxt(ab) : ''}, |${ov('BC')}| = ${sq(bc)}${lenTxt(bc) !== sq(bc) ? ' = ' + lenTxt(bc) : ''}, |${ov('AC')}| = ${sq(ac)}${lenTxt(ac) !== sq(ac) ? ' = ' + lenTxt(ac) : ''}`,
+      isEq ? `Zwei Seiten sind gleich lang → <b>gleichschenklig</b>.` : `Alle drei Seiten sind verschieden lang → nicht gleichschenklig.`,
+      `Pythagoras-Test mit der längsten Seite ${big[0]}: ${rest[0][1]} + ${rest[1][1]} = ${rest[0][1] + rest[1][1]} ${isRight ? '=' : '≠'} ${big[1]} → ${isRight ? '<b>rechtwinklig</b> (der rechte Winkel liegt gegenüber von ' + big[0] + ')' : 'nicht rechtwinklig'}.`,
+      res(`Das Dreieck ist ${opts[kind]}.`),
+    ],
+  };
+} });
+
+def({ id: 'fig_viereck', ch: 'fig', name: 'Viereck bestimmen', lvl: 2, gen() {
+  const kind = R.int(0, 3); // 0 Quadrat, 1 Rechteck, 2 Raute, 3 Parallelogramm
+  let u, v;
+  for (;;) {
+    if (kind === 0) ({ u, v } = orthoPair());
+    else if (kind === 1) { const o = orthoPair(); u = o.u; v = V.mul(R.pick([2, 3]), o.v); if (Math.max(...v.map(Math.abs)) > 12) continue; }
+    else if (kind === 2) { u = rvnz(-3, 3); v = equalNotOrtho(u); if (!v) continue; }
+    else { u = rvnz(-4, 4); v = rvNotPar(u, -4, 4); if (V.dot(u, v) === 0 || V.len2(u) === V.len2(v)) continue; }
+    break;
+  }
+  const A = rv(-4, 4), B = V.add(A, u), C = V.add(B, v), D = V.add(A, v);
+  const l1 = V.len2(u), l2 = V.len2(v), d = V.dot(u, v);
+  const opts = ['Quadrat', 'Rechteck (kein Quadrat)', 'Raute (kein Quadrat)', 'Parallelogramm (weder Rechteck noch Raute)'];
+  return {
+    q: `Die Punkte ${pt('A', A)}, ${pt('B', B)}, ${pt('C', C)} und ${pt('D', D)} bilden ein Viereck ABCD.<br>Um welches Viereck handelt es sich genau?`,
+    type: 'choice', options: opts, answer: kind,
+    hints: [
+      `Schritt für Schritt: (1) Ist ${ov('AB')} = ${ov('DC')}? Dann ist es ein Parallelogramm. (2) Sind ${ov('AB')} und ${ov('AD')} senkrecht? → Rechteck. (3) Sind sie gleich lang? → Raute. Beides → Quadrat.`,
+      `${ov('AB')} = ${vec(u)}, ${ov('AD')} = ${vec(v)}. Berechne ${ov('AB')}·${ov('AD')} und vergleiche |${ov('AB')}|² mit |${ov('AD')}|².`,
+    ],
+    steps: [
+      `${ov('AB')} = B − A = ${vec(u)} und ${ov('DC')} = C − D = ${vec(V.sub(C, D))} → gleich, also ist ABCD ein <b>Parallelogramm</b>.`,
+      `Rechter Winkel bei A? ${dotSteps(u, v, 'AB', 'AD')} → ${d === 0 ? 'ja, senkrecht' : 'nein'}`,
+      `Gleich lange Seiten? |${ov('AB')}| = ${sq(l1)}, |${ov('AD')}| = ${sq(l2)} → ${l1 === l2 ? 'ja, gleich lang' : 'nein'}`,
+      `Senkrecht + gleich lang = Quadrat · nur senkrecht = Rechteck · nur gleich lang = Raute · keins = Parallelogramm`,
+      res(`ABCD ist ein ${opts[kind]}.`),
+    ],
+  };
+} });
+
+def({ id: 'fig_rechteck', ch: 'fig', name: 'Flächeninhalt eines Rechtecks', lvl: 2, gen() {
+  const o = orthoPair(); const m = R.pick([1, 2]); const u = o.u, v = V.mul(m, o.v);
+  if (Math.max(...v.map(Math.abs)) > 14) return this.gen();
+  const A = rv(-4, 4), B = V.add(A, u), C = V.add(B, v), D = V.add(A, v), F = Math.sqrt(V.len2(u)) * Math.sqrt(V.len2(v));
+  return {
+    q: `ABCD mit ${pt('A', A)}, ${pt('B', B)}, ${pt('C', C)} und ${pt('D', D)} ist ein Rechteck.<br>Berechne seinen Flächeninhalt.`,
+    type: 'num', answer: F, unit: 'FE',
+    hints: [
+      `Fläche eines Rechtecks = Länge · Breite = |${ov('AB')}| · |${ov('AD')}|.`,
+      `${ov('AB')} = ${vec(u)}, ${ov('AD')} = ${vec(v)}. Berechne beide Längen und multipliziere.`,
+    ],
+    steps: [
+      `Seiten: ${ov('AB')} = ${vec(u)}, ${ov('AD')} = ${vec(v)}`,
+      `<small>Kontrolle rechter Winkel: ${dotSteps(u, v, 'AB', 'AD')}</small>`,
+      lenSteps(u, 'AB'),
+      lenSteps(v, 'AD'),
+      `A = ${n(Math.sqrt(V.len2(u)))} · ${n(Math.sqrt(V.len2(v)))} = ${n(F)}`,
+      res(`A = ${n(F)} FE`),
+    ],
+  };
+} });
+
+def({ id: 'fig_rwdreieck', ch: 'fig', name: 'Rechtwinkliges Dreieck: Fläche', lvl: 2, gen() {
+  const o = orthoPair(); const m = R.pick([1, 2]); const u = o.u, v = V.mul(m, o.v);
+  if (Math.max(...v.map(Math.abs)) > 14) return this.gen();
+  const A = rv(-4, 4), B = V.add(A, u), C = V.add(A, v), a = Math.sqrt(V.len2(u)), b = Math.sqrt(V.len2(v)), F = a * b / 2;
+  return {
+    q: `Das Dreieck ABC mit ${pt('A', A)}, ${pt('B', B)} und ${pt('C', C)} hat bei A einen rechten Winkel.<br>Berechne den Flächeninhalt.`,
+    type: 'num', answer: F, tol: 0.011, unit: 'FE',
+    hints: [
+      `Bei einem rechtwinkligen Dreieck sind die beiden Seiten am rechten Winkel Grundseite und Höhe: A = ½ · |${ov('AB')}| · |${ov('AC')}|.`,
+      `${ov('AB')} = ${vec(u)}, ${ov('AC')} = ${vec(v)}. Längen berechnen, multiplizieren, halbieren.`,
+    ],
+    steps: [
+      `${ov('AB')} = ${vec(u)}, ${ov('AC')} = ${vec(v)} <small>(Kontrolle: ${ov('AB')}·${ov('AC')} = ${n(V.dot(u, v))} → rechter Winkel ✓)</small>`,
+      lenSteps(u, 'AB'),
+      lenSteps(v, 'AC'),
+      `A = ½ · ${n(a)} · ${n(b)} = ${n(F)}`,
+      res(`A = ${n(F)} FE`),
+    ],
+  };
+} });
+
+def({ id: 'fig_umfang', ch: 'fig', name: 'Umfang eines Dreiecks', lvl: 1, gen() {
+  const A = rv(-4, 4), u = rvnz(-4, 4), v = rvNotPar(u, -4, 4), B = V.add(A, u), C = V.add(A, v);
+  const s = [V.sub(B, A), V.sub(C, B), V.sub(C, A)], L = s.map(V.len), U = L.reduce((a, b) => a + b);
+  return {
+    q: `Berechne den Umfang des Dreiecks mit ${pt('A', A)}, ${pt('B', B)} und ${pt('C', C)}.<br><small>Runde auf 2 Nachkommastellen.</small>`,
+    type: 'num', answer: U, tol: 0.03, unit: 'LE',
+    hints: [
+      `Umfang = Summe der drei Seitenlängen: |${ov('AB')}| + |${ov('BC')}| + |${ov('AC')}|.`,
+      `${ov('AB')} = ${vec(s[0])}, ${ov('BC')} = ${vec(s[1])}, ${ov('AC')} = ${vec(s[2])}. Von jedem die Länge √(…²+…²+…²).`,
+    ],
+    steps: [
+      lenSteps(s[0], 'AB'), lenSteps(s[1], 'BC'), lenSteps(s[2], 'AC'),
+      `U ≈ ${L.map(x => n(x)).join(' + ')} ≈ ${n(U)} <small>(mit ungerundeten Werten weiterrechnen!)</small>`,
+      res(`U ≈ ${n(U)} LE`),
+    ],
+  };
+} });
+
+def({ id: 'fig_pyramide', ch: 'fig', name: 'Volumen einer Pyramide', lvl: 3, gen() {
+  const [a0, b0] = R.pick([[2, 0], [4, 0], [3, 1], [1, 3], [2, 2], [4, 2], [6, 0], [3, 3]]);
+  const a = R.pick([1, -1]) * a0, b = R.pick([1, -1]) * b0;
+  const u = [a, b, 0], v = [-b, a, 0], A = [R.int(-3, 3), R.int(-3, 3), 0];
+  const B = V.add(A, u), C = V.add(B, v), D = V.add(A, v), M = V.add(A, V.mul(0.5, V.add(u, v))), h = R.int(3, 9), S = V.add(M, [0, 0, h]);
+  const G = V.len2(u), Vol = G * h / 3;
+  return {
+    q: `Die quadratische Grundfläche ABCD einer Pyramide liegt in der x₁x₂-Ebene: ${pt('A', A)}, ${pt('B', B)}, ${pt('C', C)}, ${pt('D', D)}. Die Spitze ist ${pt('S', S)}.<br>Berechne das Volumen der Pyramide.<br><small>Ggf. auf 2 Nachkommastellen runden oder als Bruch eingeben.</small>`,
+    type: 'num', answer: Vol, tol: 0.011, unit: 'VE',
+    hints: [
+      `Pyramidenvolumen: V = ⅓ · G · h. G = Fläche des Quadrats = |${ov('AB')}|². Weil die Grundfläche in der x₁x₂-Ebene liegt, ist die Höhe h einfach die x₃-Koordinate der Spitze.`,
+      `${ov('AB')} = ${vec(u)} → G = ${G}. Die Höhe ist h = ${h}.`,
+    ],
+    steps: [
+      `Grundfläche: ${ov('AB')} = ${vec(u)}, |${ov('AB')}|² = ${p(a)}² + ${p(b)}² + 0² = ${G} → G = ${G} FE`,
+      `Höhe: Die Grundfläche liegt in der x₁x₂-Ebene (x₃ = 0), die Spitze hat x₃ = ${h}. Also h = ${h}. <small>(S liegt genau über dem Mittelpunkt M(${M.map(x => n(x)).join(' | ')}) der Diagonale AC.)</small>`,
+      `V = ⅓ · ${G} · ${h} = ${frac(G * h, 3)}${Number.isInteger(Vol) ? '' : ' ≈ ' + n(Vol)}`,
+      res(`V = ${frac(G * h, 3)}${Number.isInteger(Vol) ? '' : ' ≈ ' + n(Vol)} VE`),
+    ],
+  };
+} });
+
+def({ id: 'fig_kante', ch: 'fig', name: 'Seitenkante einer Pyramide', lvl: 1, gen() {
+  const A = [R.int(-4, 4), R.int(-4, 4), 0], v = R.chance(0.5) ? niceNormal().n.map((x, i) => i === 2 ? Math.abs(x) : x) : [R.int(-4, 4), R.int(-4, 4), R.int(2, 8)];
+  const S = V.add(A, v), s = V.len2(v), L = Math.sqrt(s), exact = Number.isInteger(L);
+  return {
+    q: `Eine Pyramide hat die Ecke ${pt('A', A)} und die Spitze ${pt('S', S)}.<br>Wie lang ist die Seitenkante AS?${exact ? '' : '<br><small>Runde auf 2 Nachkommastellen oder gib die Wurzel ein.</small>'}`,
+    type: 'num', answer: L, tol: exact ? 1e-6 : 0.011, unit: 'LE',
+    hints: [
+      `Kantenlänge = Länge des Verbindungsvektors ${ov('AS')} = S − A.`,
+      `${ov('AS')} = ${vec(v)}. Jetzt √(…² + …² + …²).`,
+    ],
+    steps: [
+      `${ov('AS')} = ${vec(S)} − ${vec(A)} = ${vec(v)}`,
+      lenSteps(v, 'AS'),
+      res(`|AS| = ${exact ? L : rootStr(s) + ' ≈ ' + n(L)} LE`),
+    ],
+  };
+} });
+
+def({ id: 'ebe_pprobe', ch: 'ebe', name: 'Liegt der Punkt in der Ebene?', lvl: 2, gen() {
+  const A = rv(-4, 4), u = rvnz(-3, 3), v = rvNotPar(u, -3, 3), r0 = R.nz(-2, 2), s0 = R.nz(-2, 2), yes = R.chance(0.5);
+  let P = V.add(V.add(A, V.mul(r0, u)), V.mul(s0, v));
+  if (!yes) { const nn = V.cross(u, v); do { P = P.slice(); P[R.int(0, 2)] += R.nz(-2, 2); } while (V.dot(V.sub(P, A), nn) === 0); }
+  const c = V.sub(P, A);
+  let i, j; for (const [a, b] of [[0, 1], [0, 2], [1, 2]]) if (u[a] * v[b] - u[b] * v[a] !== 0) { i = a; j = b; break; }
+  const k = 3 - i - j, det = u[i] * v[j] - u[j] * v[i], rn = c[i] * v[j] - c[j] * v[i], sn = u[i] * c[j] - u[j] * c[i];
+  const ok = u[k] * rn + v[k] * sn === c[k] * det;
+  const eq2 = q => `${lin([u[q], v[q]], ['r', 's'])} = ${n(c[q])}`;
+  return {
+    q: `Liegt der Punkt ${pt('P', P)} in der Ebene<br>${planeParam('E', A, u, v)} ?`,
+    type: 'choice', options: ['Ja', 'Nein'], answer: ok ? 0 : 1,
+    hints: [
+      `Setze P gleich der Ebenengleichung. Das ergibt drei Gleichungen mit zwei Unbekannten r und s. Löse zwei davon und prüfe mit der dritten.`,
+      `Stützvektor nach rechts: Zeile ${i + 1}: ${eq2(i)}, Zeile ${j + 1}: ${eq2(j)}. Danach r und s in Zeile ${k + 1} einsetzen.`,
+    ],
+    steps: [
+      `Ansatz: ${vec(P)} = ${vec(A)} + r·${vec(u)} + s·${vec(v)}`,
+      `Stützvektor nach rechts (P − A = ${vec(c)}):<ul class="calc">${[0, 1, 2].map(q => `<li>${q + 1}. Zeile: ${eq2(q)}</li>`).join('')}</ul>`,
+      `Zeilen ${i + 1} und ${j + 1} lösen (Additions- oder Einsetzverfahren): r = ${frac(rn, det)}, s = ${frac(sn, det)}`,
+      `Probe in Zeile ${k + 1}: ${p(u[k])}·${frac(rn, det)} + ${p(v[k])}·${frac(sn, det)} = ${frac(u[k] * rn + v[k] * sn, det)} ${ok ? '=' : '≠'} ${n(c[k])} → ${ok ? 'passt ✓' : 'Widerspruch ✗'}`,
+      res(ok ? `Ja, P liegt in E (r = ${frac(rn, det)}, s = ${frac(sn, det)}).` : 'Nein, P liegt nicht in E.'),
+    ],
+  };
+} });
+
+def({ id: 'ebe_3p', ch: 'ebe', name: 'Ebene durch drei Punkte (Parameterform)', lvl: 1, gen() {
+  const A = rv(-4, 4), u = rvnz(-3, 3), v = rvNotPar(u, -3, 3), B = V.add(A, u), C = V.add(A, v);
+  return {
+    q: `Die Ebene E geht durch ${pt('A', A)}, ${pt('B', B)} und ${pt('C', C)}. Mit Stützpunkt A und erstem Spannvektor ${ov('AB')} lautet sie E: ${ov('x')} = ${vec(A)} + r·${vec(u)} + s·${ov('v')}.<br>Gib den zweiten Spannvektor ${ov('v')} = ${ov('AC')} an.`,
+    type: 'vec', answer: v,
+    hints: [
+      `Eine Ebene durch drei Punkte: Stützvektor = ein Punkt (A), Spannvektoren = die Verbindungsvektoren von A zu den anderen beiden Punkten.`,
+      `${ov('AC')} = C − A = ${vec(C)} − ${vec(A)}.`,
+    ],
+    steps: [
+      `Rezept: E: ${ov('x')} = A + r·${ov('AB')} + s·${ov('AC')}`,
+      `${ov('AC')} = ${vec(C)} − ${vec(A)} = ${vec(v)}`,
+      `Damit: ${planeParam('E', A, u, v)}`,
+      res(`${ov('v')} = ${vec(v)}`),
     ],
   };
 } });
