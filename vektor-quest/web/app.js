@@ -410,7 +410,18 @@ $('#btn-badges').onclick = () => {
   show('badges');
 };
 $('#streak-btn').onclick = () => toast(`🔥 ${$('#streak-days').textContent} Tag(e) am Stück geübt. Morgen weitermachen!`);
-$('#btn-reset').onclick = () => { if (confirm('Wirklich alle XP, Sterne und Erfolge löschen?')) { S = fresh(); save(); goHome(); } };
+// Zurücksetzen mit Bestätigung direkt auf der Seite (kein Browser-Dialog)
+let resetArmed = null;
+$('#btn-reset').onclick = () => {
+  const b = $('#btn-reset');
+  if (!resetArmed) {
+    b.textContent = 'Wirklich alles löschen? Zum Bestätigen nochmal tippen';
+    resetArmed = setTimeout(() => { resetArmed = null; b.textContent = 'Fortschritt zurücksetzen'; }, 4000);
+    return;
+  }
+  clearTimeout(resetArmed); resetArmed = null; b.textContent = 'Fortschritt zurücksetzen';
+  S = fresh(); save(); toast('Fortschritt gelöscht'); goHome();
+};
 
 // ---------- Start ----------
 window.VQ = { get task() { return task; } }; // für automatische Tests
