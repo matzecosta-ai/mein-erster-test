@@ -1,5 +1,9 @@
 # mein-erster-test
 
+**Neu: [Vektor-Quest](vektor-quest/)**, eine Lern-App für Analytische Geometrie mit Hinweisen und Lösungswegen (Android-APK + Web-App).
+
+---
+
 BVG-Abfahrten in meiner Nähe, per GPS.
 
 - **Web-App** (`index.html`, `manifest.webmanifest`, `sw.js`, `icons/`): läuft im Browser, installierbar als PWA.
