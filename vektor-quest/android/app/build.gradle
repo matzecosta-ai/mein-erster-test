@@ -1,0 +1,28 @@
+plugins {
+    id 'com.android.application'
+}
+
+android {
+    namespace 'de.vektorquest'
+    compileSdk 34
+
+    defaultConfig {
+        applicationId 'de.vektorquest'
+        minSdk 24
+        targetSdk 34
+        versionCode 3
+        versionName '3.0'
+    }
+
+    // Die Web-App aus ../../web wird 1:1 als Asset in die APK gepackt.
+    sourceSets {
+        main {
+            assets.srcDirs = ['../../web']
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+}

@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#5b3cc4">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Vektor-Quest">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<title>Vektor-Quest</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<!-- Startseite -->
+<section id="v-home" class="view">
+  <header class="hero">
+    <div class="hero-top">
+      <div>
+        <div class="app-name">Vektor-Quest</div>
+        <div class="sub">Analytische Geometrie · Grundkurs</div>
+      </div>
+      <button class="streak" id="streak-btn" aria-label="Lerntage am Stück">🔥 <span id="streak-days">0</span></button>
+    </div>
+    <div class="player">
+      <div class="avatar" id="avatar">🐣</div>
+      <div class="player-info">
+        <div class="player-title"><span id="lvl-title">Vektor-Neuling</span> · Level <span id="lvl">1</span></div>
+        <div class="xpbar"><div id="xpfill"></div></div>
+        <div class="xptext" id="xptext">0 / 60 XP</div>
+      </div>
+    </div>
+  </header>
+
+  <div class="abi">
+    <div class="abi-row"><b>🎓 Abi-Fortschritt</b><b id="abi-pct">0 %</b></div>
+    <div class="abi-bar"><div id="abi-fill"></div></div>
+    <small id="abi-text"></small>
+  </div>
+
+  <div class="modes">
+    <button class="mode daily" id="btn-daily">
+      <span class="mode-ico">🏆</span>
+      <span class="mode-txt"><b>Tages-Challenge</b><small id="daily-status">5 Aufgaben · +50 XP Bonus</small></span>
+    </button>
+    <button class="mode blitz" id="btn-blitz">
+      <span class="mode-ico">⚡</span>
+      <span class="mode-txt"><b>Blitzrunde</b><small id="blitz-status">90 Sekunden · Rekord: 0</small></span>
+    </button>
+    <button class="mode mix" id="btn-mix">
+      <span class="mode-ico">🎲</span>
+      <span class="mode-txt"><b>Zufallsmix</b><small>Aufgaben aus allen Themen</small></span>
+    </button>
+  </div>
+
+  <h2 class="sec">Themenwelten</h2>
+  <div id="chapters"></div>
+
+  <button class="badges-btn" id="btn-badges">🎖️ Erfolge <span id="badge-count">0/0</span></button>
+  <p class="foot">Hilfe gibt es immer in drei Stufen: 💡 Hinweis 1 → 💡 Hinweis 2 → 📖 kompletter Lösungsweg.</p>
+</section>
+
+<!-- Kapitelübersicht -->
+<section id="v-chapter" class="view" hidden>
+  <div class="topbar"><button class="icon-btn" data-back>‹</button><h1 id="ch-title"></h1></div>
+  <p class="ch-desc" id="ch-desc"></p>
+  <button class="big-btn" id="ch-mix">🎲 Alles aus diesem Thema gemischt</button>
+  <h2 class="sec">Oder gezielt üben</h2>
+  <div id="ch-types"></div>
+</section>
+
+<!-- Aufgabe -->
+<section id="v-task" class="view" hidden>
+  <div class="topbar">
+    <button class="icon-btn" data-back aria-label="Zurück">✕</button>
+    <div class="task-mode" id="task-mode"></div>
+    <div class="task-meta" id="task-meta"></div>
+  </div>
+  <div class="dots" id="dots"></div>
+  <article class="card" id="card">
+    <div class="tag-row"><span class="tag" id="task-tag"></span><span class="lvl-dots" id="task-lvl"></span></div>
+    <h3 id="task-name"></h3>
+    <div class="question" id="question"></div>
+    <div class="answer" id="answer"></div>
+    <div class="feedback" id="feedback" aria-live="polite"></div>
+    <div id="help"></div>
+  </article>
+  <div class="dock" id="dock">
+    <div class="keypad" id="keypad">
+      <button data-k="7">7</button><button data-k="8">8</button><button data-k="9">9</button><button data-k="del" class="kfn">⌫</button>
+      <button data-k="4">4</button><button data-k="5">5</button><button data-k="6">6</button><button data-k="−" class="kfn">−</button>
+      <button data-k="1">1</button><button data-k="2">2</button><button data-k="3">3</button><button data-k="/" class="kfn">/</button>
+      <button data-k="0">0</button><button data-k=",">,</button><button data-k="√" class="kfn">√</button><button data-k="next" class="kfn">⇥</button>
+    </div>
+    <div class="actions">
+      <button class="act help" id="btn-help">💡 Hinweis 1</button>
+      <button class="act primary" id="btn-check">Prüfen</button>
+    </div>
+  </div>
+</section>
+
+<!-- Ergebnis -->
+<section id="v-result" class="view" hidden>
+  <div class="result">
+    <div class="result-ico" id="res-ico">🏆</div>
+    <h1 id="res-title"></h1>
+    <p id="res-text"></p>
+    <div class="res-stats" id="res-stats"></div>
+    <button class="big-btn" id="res-again">Nochmal!</button>
+    <button class="ghost-btn" data-home>Zur Startseite</button>
+  </div>
+</section>
+
+<!-- Erfolge -->
+<section id="v-badges" class="view" hidden>
+  <div class="topbar"><button class="icon-btn" data-back>‹</button><h1>Erfolge</h1></div>
+  <div class="stats" id="stats"></div>
+  <div class="badge-grid" id="badge-grid"></div>
+  <button class="ghost-btn danger" id="btn-reset">Fortschritt zurücksetzen</button>
+</section>
+
+<div id="toasts"></div>
+<div id="fx"></div>
+
+<script src="aufgaben.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
