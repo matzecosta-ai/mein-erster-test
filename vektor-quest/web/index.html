@@ -57,11 +57,18 @@
     </button>
   </div>
 
+  <h2 class="sec">Abi-Training Berlin</h2>
+  <div class="abi-train">
+    <button class="exam-btn" id="btn-teilA"><span class="mode-ico">🧮</span><span class="mode-txt"><b>Prüfungsteil A</b><small id="teilA-status">5 kurze Aufgaben, ohne Taschenrechner</small></span></button>
+    <button class="exam-btn" id="btn-teilB"><span class="mode-ico">📝</span><span class="mode-txt"><b>Prüfungsteil B</b><small id="teilB-status">Komplexe Aufgabe mit Sachkontext, 20 BE</small></span></button>
+    <button class="exam-btn" id="btn-links"><span class="mode-ico">📄</span><span class="mode-txt"><b>Echte Abituraufgaben</b><small>Offizielle Aufgaben mit Lösungen (IQB, Senatsverwaltung)</small></span></button>
+  </div>
+
   <h2 class="sec">Themenwelten</h2>
   <div id="chapters"></div>
 
   <button class="badges-btn" id="btn-badges">🎖️ Erfolge <span id="badge-count">0/0</span></button>
-  <p class="foot">Hilfe gibt es immer in drei Stufen: 💡 Hinweis 1 → 💡 Hinweis 2 → 📖 kompletter Lösungsweg.</p>
+  <p class="foot">Alle Inhalte richten sich nach den Berliner Prüfungsschwerpunkten Mathematik (Grundkurs). Hilfe gibt es immer in drei Stufen: 💡 Hinweis 1 → 💡 Hinweis 2 → 📖 kompletter Lösungsweg.</p>
 </section>
 
 <!-- Kapitelübersicht -->
@@ -82,6 +89,7 @@
   </div>
   <div class="dots" id="dots"></div>
   <article class="card" id="card">
+    <div class="ctx" id="ctx" hidden></div>
     <div class="tag-row"><span class="tag" id="task-tag"></span><span class="lvl-dots" id="task-lvl"></span></div>
     <h3 id="task-name"></h3>
     <div class="question" id="question"></div>
@@ -113,6 +121,13 @@
     <button class="big-btn" id="res-again">Nochmal!</button>
     <button class="ghost-btn" data-home>Zur Startseite</button>
   </div>
+</section>
+
+<!-- Echte Abituraufgaben -->
+<section id="v-links" class="view" hidden>
+  <div class="topbar"><button class="icon-btn" data-back>‹</button><h1>Echte Abituraufgaben</h1></div>
+  <p class="ch-desc">Berlin stellt einen Teil der Abituraufgaben aus dem gemeinsamen Aufgabenpool der Länder (IQB). Diese Aufgaben sind mit Lösungen (Erwartungshorizont) frei veröffentlicht. Für den Grundkurs auf <b>„grundlegendes Niveau“</b> achten, die Geometrie-Aufgaben heißen dort <b>„Analytische Geometrie / Lineare Algebra“</b>. Tipp: Erst selbst rechnen, dann den Erwartungshorizont anschauen.</p>
+  <div id="links"></div>
 </section>
 
 <!-- Erfolge -->
