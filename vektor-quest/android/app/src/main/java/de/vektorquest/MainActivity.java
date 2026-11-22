@@ -1,8 +1,11 @@
 package de.vektorquest;
 
 import android.app.Activity;
+import android.content.Intent;
+import android.net.Uri;
 import android.graphics.Color;
 import android.os.Bundle;
+import android.webkit.WebResourceRequest;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
@@ -22,7 +25,19 @@ public class MainActivity extends Activity {
         s.setDomStorageEnabled(true);          // Spielstand (XP, Sterne, Erfolge) in localStorage
         s.setAllowFileAccess(true);
         s.setTextZoom(100);                    // Layout nicht durch Systemschriftgröße zerschießen
-        web.setWebViewClient(new WebViewClient());
+        web.setWebViewClient(new WebViewClient() {
+            // Links ins Internet (z. B. echte Abituraufgaben als PDF) im Browser öffnen
+            @Override
+            public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
+                Uri uri = request.getUrl();
+                String scheme = uri.getScheme();
+                if ("http".equals(scheme) || "https".equals(scheme)) {
+                    try { startActivity(new Intent(Intent.ACTION_VIEW, uri)); } catch (Exception ignored) { }
+                    return true;
+                }
+                return false;
+            }
+        });
         setContentView(web);
         if (savedInstanceState != null) web.restoreState(savedInstanceState);
         else web.loadUrl("file:///android_asset/index.html");

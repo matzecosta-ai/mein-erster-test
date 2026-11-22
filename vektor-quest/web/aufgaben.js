@@ -1,4 +1,4 @@
-// Vektor-Quest: Aufgaben-Generatoren für Analytische Geometrie (Grundkurs).
+// Vektor-Quest: Aufgaben-Generatoren für Analytische Geometrie (Grundkurs Berlin).
 // Jede Aufgabe liefert: Fragetext, Antworttyp, richtige Antwort, zwei Hinweise
 // und einen ausführlichen Lösungsweg. Läuft im Browser und in Node (für Tests).
 (function (root) {
@@ -36,6 +36,7 @@ function rvNotPar(u, lo = -4, hi = 4) { let v; do { v = rvnz(lo, hi); } while (V
 function gcd(a, b) { a = Math.abs(a); b = Math.abs(b); while (b) [a, b] = [b, a % b]; return a; }
 function gcdAll(v) { return v.reduce((g, x) => gcd(g, x), 0); }
 function reduceVec(v) { const g = gcdAll(v) || 1; let w = v.map(x => x / g); const f = w.find(x => x !== 0); if (f < 0) w = w.map(x => -x); return w.map(x => x || 0); }
+function reduceVec(v) { const g = gcdAll(v) || 1; let w = v.map(x => x / g); const f = w.find(x => x !== 0); if (f < 0) w = w.map(x => -x); return w.map(x => x || 0); }
 const deg = r => r * 180 / Math.PI;
 // Pythagoreische Quadrupel: Normalenvektoren mit ganzzahliger Länge
 const QUADS = [[1, 2, 2, 3], [2, 3, 6, 7], [1, 4, 8, 9], [4, 4, 7, 9], [2, 6, 9, 11], [6, 6, 7, 11]];
@@ -70,6 +71,7 @@ function lin(c, vars = X) {
   });
   return s || '0';
 }
+const plane = (name, nv, d) => `${name}: ${lin(nv)} = ${n(d)}`;
 const lineEq = (name, A, u, t = 't') => `${name}: ${ov('x')} = ${vec(A)} + ${t}·${vec(u)}`;
 const planeParam = (name, A, u, v) => `${name}: ${ov('x')} = ${vec(A)} + r·${vec(u)} + s·${vec(v)}`;
 function rootStr(k) { // √k vereinfacht
@@ -87,6 +89,7 @@ function frac(num, den) {
   return `${num < 0 ? MINUS : ''}<span class="frac"><span>${Math.abs(num)}</span><span>${den}</span></span>`;
 }
 function fracOver(top, bottom) { return `<span class="frac"><span>${top}</span><span>${bottom}</span></span>`; }
+const co = k => Math.abs(k) === 1 ? "" : String(Math.abs(k)); // Koeffizient vor t, 1 weglassen
 const ct = k => k === 1 ? "" : k === -1 ? "−" : p(k); // Faktor vor einer Variablen
 const sq = s => `√<span class="rad">${s}</span>`;
 const res = s => `<div class="res">${s}</div>`;
@@ -105,13 +108,33 @@ function lenSteps(v, name = 'v') {
   return `|${ov(name)}| = ${sq(v.map(x => p(x) + '²').join(' + '))} = ${sq(v.map(x => x * x).join(' + '))} = ${sq(s)}${r !== sq(s) ? ' = ' + r : ''}${approx || ` = <b>${r}</b>`}`;
 }
 
+function lineInPlane(nv, A, u, d) {
+  const nA = V.dot(nv, A), nu = V.dot(nv, u);
+  const steps = [
+    `Setze die Zeilen der Geraden (x₁ = ${n(A[0])} ${u[0] < 0 ? '−' : '+'} ${co(u[0])}t usw.) in die Ebenengleichung ein:`,
+    `${insertLine(nv, A, u)} = ${n(d)}`,
+    `Ausmultiplizieren und sortieren: ${n(nA)} ${nu < 0 ? '−' : '+'} ${co(nu)}t = ${n(d)}`,
+  ];
+  return { nA, nu, steps };
+}
+function pointPlaneSetup() {
+  const { n: nv, len } = niceNormal();
+  const F = rv(-4, 4), d = V.dot(nv, F), k = R.nz(-2, 2), P = V.add(F, V.mul(k, nv));
+  return { nv, len, F, d, k, P };
+}
+function insertLine(nv, A, u, t = 't') { // n·(A + t·u) ausgeschrieben
+  return nv.map((k, i) => k === 0 ? null : `${p(k)}·(${n(A[i])} ${u[i] < 0 ? '−' : '+'} ${co(u[i])}${t})`).filter(Boolean).join(' + ');
+}
+
 // ---------- Kapitel ----------
-const CHAPTERS = [ // nur Grundkurs-Inhalte
-  { id: 'vek', name: 'Vektoren – Grundlagen', icon: '➡️', desc: 'Rechnen mit Vektoren, Länge, Abstand, Mittelpunkt, Parallelogramm' },
+const CHAPTERS = [ // Inhalte nach den Berliner Prüfungsschwerpunkten Mathematik Grundkurs (2026–2028)
+  { id: 'vek', name: 'Vektoren – Grundlagen', icon: '➡️', desc: 'Rechnen, Länge, Mittelpunkt, Teilverhältnis, Einheitsvektor, Linearkombination' },
   { id: 'skp', name: 'Skalarprodukt & Winkel', icon: '📐', desc: 'Orthogonalität, Winkel zwischen Vektoren, Winkel im Dreieck' },
-  { id: 'fig', name: 'Figuren & Körper', icon: '🔺', desc: 'Dreiecke & Vierecke untersuchen, Fläche, Umfang, Pyramide' },
+  { id: 'fig', name: 'Figuren, Flächen & Körper', icon: '🔺', desc: 'Dreiecke & Vierecke untersuchen, Flächen, Umfang, Pyramide' },
   { id: 'ger', name: 'Geraden', icon: '📏', desc: 'Parameterform, Punktprobe, Spurpunkt, Lage, Schnittpunkt, Winkel' },
-  { id: 'ebe', name: 'Ebenen (Parameterform)', icon: '🟦', desc: 'Ebene aufstellen, Punkte berechnen, Punktprobe' },
+  { id: 'ebe', name: 'Ebenen', icon: '🟦', desc: 'Parameter- & Koordinatenform, Normalenvektor, Punktprobe, Spurpunkte' },
+  { id: 'lag', name: 'Lage, Schnitte & Winkel', icon: '🔀', desc: 'Durchstoßpunkt, Schnittgerade, Winkel zwischen Gerade/Ebene/Ebene' },
+  { id: 'abs', name: 'Abstände & Spiegelung', icon: '📍', desc: 'Lotfußpunkt, Abstand Punkt–Ebene, parallele Ebenen, Spiegelung' },
   { id: 'lgs', name: 'LGS lösen (Gauß)', icon: '🧮', desc: 'Gleichungssysteme mit 2 und 3 Unbekannten, Lösbarkeit' },
 ];
 
@@ -1017,7 +1040,7 @@ def({ id: 'fig_kante', ch: 'fig', name: 'Seitenkante einer Pyramide', lvl: 1, ge
   };
 } });
 
-def({ id: 'ebe_pprobe', ch: 'ebe', name: 'Liegt der Punkt in der Ebene?', lvl: 2, gen() {
+def({ id: 'ebe_pprobe', ch: 'ebe', name: 'Punktprobe Ebene (Parameterform)', lvl: 2, gen() {
   const A = rv(-4, 4), u = rvnz(-3, 3), v = rvNotPar(u, -3, 3), r0 = R.nz(-2, 2), s0 = R.nz(-2, 2), yes = R.chance(0.5);
   let P = V.add(V.add(A, V.mul(r0, u)), V.mul(s0, v));
   if (!yes) { const nn = V.cross(u, v); do { P = P.slice(); P[R.int(0, 2)] += R.nz(-2, 2); } while (V.dot(V.sub(P, A), nn) === 0); }
@@ -1060,6 +1083,589 @@ def({ id: 'ebe_3p', ch: 'ebe', name: 'Ebene durch drei Punkte (Parameterform)', 
     ],
   };
 } });
+
+def({ id: 'ebe_np', ch: 'ebe', name: 'Koordinatenform aus Normalenvektor', lvl: 1, gen() {
+  const nv = rvnz(-4, 4), P = rv(-4, 4), d = V.dot(nv, P);
+  return {
+    q: `Die Ebene E hat den Normalenvektor ${ov('n')} = ${vec(nv)} und enthält den Punkt ${pt('P', P)}.<br>Gib E in Koordinatenform an.`,
+    type: 'plane', answer: [...nv, d],
+    hints: [
+      `Koordinatenform: n₁x₁ + n₂x₂ + n₃x₃ = d. Die Zahlen vor x₁, x₂, x₃ sind einfach die Einträge des Normalenvektors.`,
+      `Also ${lin(nv)} = d. Um d zu bekommen, setze P ein: d = ${ov('n')} · ${ov('p')}.`,
+    ],
+    steps: [
+      `Ansatz mit dem Normalenvektor: ${lin(nv)} = d`,
+      `Punkt P einsetzen: d = ${nv.map((k, i) => `${p(k)}·${p(P[i])}`).join(' + ')} = ${n(d)}`,
+      res(plane('E', nv, d)),
+    ],
+  };
+} });
+
+def({ id: 'ebe_punktprobe', ch: 'ebe', name: 'Punktprobe Ebene (Koordinatenform)', lvl: 1, gen() {
+  const nv = rvnz(-4, 4), Q = rv(-4, 4), d = V.dot(nv, Q);
+  const yes = R.chance(0.5);
+  let P;
+  if (yes) { let w; do { w = V.cross(nv, rvnz(-2, 2)); } while (V.zero(w)); P = V.add(Q, w); }
+  else { do { P = rv(-5, 5); } while (V.dot(nv, P) === d); }
+  const val = V.dot(nv, P);
+  return {
+    q: `Liegt der Punkt ${pt('P', P)} in der Ebene ${plane('E', nv, d)}?`,
+    type: 'choice', options: ['Ja', 'Nein'], answer: val === d ? 0 : 1,
+    hints: [
+      `Setze die Koordinaten von P für x₁, x₂, x₃ in die Ebenengleichung ein.`,
+      `Kommt links genau ${n(d)} heraus, liegt P in E – sonst nicht.`,
+    ],
+    steps: [
+      `Einsetzen: ${nv.map((k, i) => k === 0 ? null : `${p(k)}·${p(P[i])}`).filter(Boolean).join(' + ')} = ${n(val)}`,
+      `Vergleich mit der rechten Seite: ${n(val)} ${val === d ? '=' : '≠'} ${n(d)}`,
+      res(val === d ? 'Ja, P liegt in E.' : 'Nein, P liegt nicht in E.'),
+    ],
+  };
+} });
+
+def({ id: 'ebe_spur', ch: 'ebe', name: 'Spurpunkte einer Ebene', lvl: 1, gen() {
+  const pool = [1, 2, 3, 4, 6, -1, -2, -3];
+  const nv = [R.pick(pool), R.pick(pool), R.pick(pool)];
+  const l = nv.reduce((a, b) => Math.abs(a * b) / gcd(a, b), 1);
+  const d = l * R.pick([1, 2, -1]);
+  const ax = R.int(0, 2), S = [0, 0, 0]; S[ax] = d / nv[ax];
+  const axes = ['x₁-Achse', 'x₂-Achse', 'x₃-Achse'];
+  return {
+    q: `Berechne den Spurpunkt der Ebene ${plane('E', nv, d)} mit der <b>${axes[ax]}</b>.`,
+    type: 'vec', answer: S,
+    hints: [
+      `Auf der ${axes[ax]} sind die beiden anderen Koordinaten 0. Setze sie in der Ebenengleichung gleich 0.`,
+      `Übrig bleibt ${p(nv[ax])}·${X[ax]} = ${n(d)}. Nach ${X[ax]} auflösen.`,
+    ],
+    steps: [
+      `Punkte auf der ${axes[ax]} haben die Form ${vec([0, 1, 2].map(i => i === ax ? X[ax] : 0))}.`,
+      `Einsetzen: ${p(nv[ax])}·${X[ax]} = ${n(d)} ⇒ ${X[ax]} = ${n(d)} : ${p(nv[ax])} = ${n(S[ax])}`,
+      res(`S${ax + 1}(${S.map(x => n(x)).join(' | ')})`),
+    ],
+  };
+} });
+
+def({ id: 'lag_ge_lage', ch: 'lag', name: 'Lage Gerade – Ebene', lvl: 2, gen() {
+  const nv = rvnz(-3, 3), kind = R.int(0, 2), A = rv(-4, 4);
+  let u, d;
+  if (kind === 0) { do { u = rvnz(-3, 3); } while (V.dot(nv, u) === 0); d = V.dot(nv, A) + R.int(-6, 6); }
+  else { do { u = V.cross(nv, rvNotPar(nv, -2, 2)); u = reduceVec(u); } while (V.zero(u)); d = V.dot(nv, A) + (kind === 1 ? R.nz(-6, 6) : 0); }
+  const L = lineInPlane(nv, A, u, d);
+  const opts = ['schneidet E in einem Punkt', 'ist echt parallel zu E', 'liegt in E'];
+  let last;
+  if (L.nu !== 0) last = `Die Gleichung hat genau eine Lösung t = ${frac(d - L.nA, L.nu)} → genau ein Schnittpunkt.`;
+  else if (L.nA === d) last = `Das t fällt weg und es bleibt ${n(L.nA)} = ${n(d)} – immer wahr → unendlich viele Lösungen, g liegt in E.`;
+  else last = `Das t fällt weg und es bleibt ${n(L.nA)} = ${n(d)} – ein Widerspruch → keine Lösung, g ist parallel.`;
+  return {
+    q: `Wie liegt die Gerade ${lineEq('g', A, u)} zur Ebene ${plane('E', nv, d)}?`,
+    type: 'choice', options: opts, answer: kind,
+    hints: [
+      `Kurzer Test: Ist ${ov('n')}·${ov('u')} = 0? Dann ist der Richtungsvektor parallel zur Ebene (g parallel oder in E). Sonst gibt es einen Schnittpunkt.`,
+      `${ov('n')}·${ov('u')} = ${n(L.nu)}. ${L.nu === 0 ? `Jetzt Punktprobe: Liegt ${pt('A', A)} in E? Einsetzen ergibt ${n(L.nA)}, rechts steht ${n(d)}.` : 'Also schneidet g die Ebene.'}`,
+    ],
+    steps: [...L.steps, last, res(`g ${opts[kind]}.`)],
+  };
+} });
+
+def({ id: 'lag_ge_schnitt', ch: 'lag', name: 'Durchstoßpunkt Gerade – Ebene', lvl: 2, gen() {
+  let nv, u; do { nv = rvnz(-3, 3); u = rvnz(-3, 3); } while (V.dot(nv, u) === 0);
+  const S = rv(-4, 4), t0 = R.nz(-3, 3), A = V.sub(S, V.mul(t0, u)), d = V.dot(nv, S);
+  const L = lineInPlane(nv, A, u, d);
+  return {
+    q: `Berechne den Schnittpunkt S der Geraden ${lineEq('g', A, u)} mit der Ebene ${plane('E', nv, d)}.`,
+    type: 'vec', answer: S,
+    hints: [
+      `Ersetze in der Ebenengleichung x₁, x₂, x₃ durch die Zeilen der Geraden. Dann hast du eine Gleichung, in der nur noch t vorkommt.`,
+      `Einsetzen gibt ${n(L.nA)} ${L.nu < 0 ? '−' : '+'} ${co(L.nu)}t = ${n(d)}. Löse nach t und setze t in g ein.`,
+    ],
+    steps: [...L.steps,
+      `Nach t auflösen: ${ct(L.nu)}t = ${n(d)} − ${p(L.nA)} = ${n(d - L.nA)} ⇒ t = ${n(t0)}`,
+      `t in g einsetzen: ${vec(A)} + ${p(t0)}·${vec(u)} = ${vec(S)}`,
+      res(pt('S', S))],
+  };
+} });
+
+def({ id: 'lag_ee_lage', ch: 'lag', name: 'Lage zweier Ebenen', lvl: 2, gen() {
+  const n1 = rvnz(-4, 4), P = rv(-3, 3), d1 = V.dot(n1, P), kind = R.int(0, 2);
+  let n2, d2;
+  if (kind === 2) { do { n2 = rvnz(-4, 4); } while (V.par(n1, n2)); d2 = R.int(-8, 8); }
+  else { const k = R.pick([-2, 2, 3, -1]); n2 = V.mul(k, n1); d2 = k * d1 + (kind === 1 ? R.nz(-4, 4) : 0); }
+  const opts = ['identisch', 'echt parallel', 'schneiden sich in einer Geraden'];
+  const par = V.par(n1, n2);
+  const k = par ? n2.find(x => x !== 0) / n1.find(x => x !== 0) : null;
+  return {
+    q: `Wie liegen die Ebenen zueinander?<br>${plane('E₁', n1, d1)}<br>${plane('E₂', n2, d2)}`,
+    type: 'choice', options: opts, answer: kind,
+    hints: [
+      `Vergleiche die Normalenvektoren ${vec(n1)} und ${vec(n2)}. Sind sie Vielfache, sind die Ebenen parallel oder identisch – sonst schneiden sie sich.`,
+      par ? `${vec(n2)} = ${n(k)}·${vec(n1)}. Gilt das auch für die rechte Seite: ist ${n(d2)} = ${n(k)}·${n(d1)}?` : `Die Normalenvektoren sind keine Vielfachen voneinander.`,
+    ],
+    steps: [
+      `Normalenvektoren: ${ov('n₁')} = ${vec(n1)}, ${ov('n₂')} = ${vec(n2)}`,
+      par ? `${ov('n₂')} = ${n(k)}·${ov('n₁')} → parallel oder identisch.` : `Kein gemeinsamer Faktor → die Ebenen sind nicht parallel, also schneiden sie sich in einer Geraden.`,
+      par ? `Rechte Seite prüfen: ${n(k)}·${p(d1)} = ${n(k * d1)} ${k * d1 === d2 ? '=' : '≠'} ${n(d2)} → ${k * d1 === d2 ? 'die ganze Gleichung ist ein Vielfaches → identisch' : 'nur die linke Seite passt → echt parallel'}.` : '',
+      res(`Die Ebenen sind ${opts[kind]}.`),
+    ].filter(Boolean),
+  };
+} });
+
+def({ id: 'lag_winkel_ge', ch: 'lag', name: 'Schnittwinkel Gerade – Ebene', lvl: 3, gen() {
+  let nv, u; do { nv = rvnz(-3, 3); u = rvnz(-3, 3); } while (V.dot(nv, u) === 0);
+  const A = rv(-3, 3), d = R.int(-6, 6), nu = V.dot(nv, u), ln = V.len2(nv), lu = V.len2(u);
+  const sv = Math.abs(nu) / Math.sqrt(ln * lu), ang = deg(Math.asin(sv));
+  return {
+    q: `Berechne den Schnittwinkel α zwischen der Geraden ${lineEq('g', A, u)} und der Ebene ${plane('E', nv, d)}.<br><small>In Grad, auf 1 Nachkommastelle.</small>`,
+    type: 'num', answer: ang, tol: 0.11, unit: '°',
+    hints: [
+      `Bei Gerade und Ebene nimmst du den <b>Sinus</b> (nicht Kosinus!): sin α = |${ov('n')} · ${ov('u')}| / (|${ov('n')}| · |${ov('u')}|).`,
+      `${ov('n')} = ${vec(nv)}, ${ov('u')} = ${vec(u)}, ${ov('n')}·${ov('u')} = ${n(nu)}, |${ov('n')}| = ${sq(ln)}, |${ov('u')}| = ${sq(lu)}.`,
+    ],
+    steps: [
+      `Warum Sinus? Der Normalenvektor steht senkrecht auf der Ebene. Der Winkel zu ${ov('n')} ist also 90° − α, und cos(90° − α) = sin α.`,
+      `Normalenvektor aus der Ebene ablesen: ${ov('n')} = ${vec(nv)}; Richtungsvektor: ${ov('u')} = ${vec(u)}`,
+      dotSteps(nv, u, 'n', 'u'),
+      `sin α = |${n(nu)}| / (${sq(ln)}·${sq(lu)}) ≈ ${n(sv, 4)}`,
+      `α = sin⁻¹(${n(sv, 4)}) ≈ ${n(ang, 1)}°`,
+      res(`α ≈ ${n(ang, 1)}°`),
+    ],
+  };
+} });
+
+def({ id: 'lag_winkel_ee', ch: 'lag', name: 'Schnittwinkel zweier Ebenen', lvl: 3, gen() {
+  let n1, n2; do { n1 = rvnz(-3, 3); n2 = rvnz(-3, 3); } while (V.par(n1, n2));
+  const d1 = R.int(-6, 6), d2 = R.int(-6, 6), dd = V.dot(n1, n2), l1 = V.len2(n1), l2 = V.len2(n2);
+  const cv = Math.abs(dd) / Math.sqrt(l1 * l2), ang = deg(Math.acos(cv));
+  return {
+    q: `Berechne den Schnittwinkel α der Ebenen<br>${plane('E₁', n1, d1)}<br>${plane('E₂', n2, d2)}<br><small>In Grad, auf 1 Nachkommastelle.</small>`,
+    type: 'num', answer: ang, tol: 0.11, unit: '°',
+    hints: [
+      `Der Winkel zwischen zwei Ebenen ist der Winkel zwischen ihren Normalenvektoren: cos α = |${ov('n₁')}·${ov('n₂')}| / (|${ov('n₁')}|·|${ov('n₂')}|). Der Betrag sorgt dafür, dass α ≤ 90° ist.`,
+      `${ov('n₁')}·${ov('n₂')} = ${n(dd)}, |${ov('n₁')}| = ${sq(l1)}, |${ov('n₂')}| = ${sq(l2)}.`,
+    ],
+    steps: [
+      `Normalenvektoren ablesen: ${ov('n₁')} = ${vec(n1)}, ${ov('n₂')} = ${vec(n2)}`,
+      dotSteps(n1, n2, 'n₁', 'n₂'),
+      `cos α = |${n(dd)}| / (${sq(l1)}·${sq(l2)}) ≈ ${n(cv, 4)}`,
+      `α = cos⁻¹(${n(cv, 4)}) ≈ ${n(ang, 1)}°`,
+      res(`α ≈ ${n(ang, 1)}°`),
+    ],
+  };
+} });
+
+def({ id: 'abs_lotfuss', ch: 'abs', name: 'Lotfußpunkt auf einer Ebene', lvl: 2, gen() {
+  const { nv, F, d, k, P } = pointPlaneSetup();
+  const L = lineInPlane(nv, P, nv, d);
+  return {
+    q: `Bestimme den Lotfußpunkt F des Punktes ${pt('P', P)} auf der Ebene ${plane('E', nv, d)}.<br><small>(F ist der Punkt in E, der P am nächsten liegt.)</small>`,
+    type: 'vec', answer: F,
+    hints: [
+      `Stelle die <b>Lotgerade</b> auf: Sie startet in P und läuft in Richtung des Normalenvektors: l: ${ov('x')} = ${vec(P)} + t·${vec(nv)}.`,
+      `Schneide die Lotgerade mit E: Einsetzen gibt ${n(L.nA)} ${L.nu < 0 ? '−' : '+'} ${co(L.nu)}t = ${n(d)}.`,
+    ],
+    steps: [
+      `Lotgerade: ${lineEq('l', P, nv)} (Richtung = Normalenvektor, weil sie senkrecht auf E steht).`,
+      ...L.steps,
+      `⇒ ${ct(L.nu)}t = ${n(d - L.nA)} ⇒ t = ${n(-k)}`,
+      `F = ${vec(P)} + ${p(-k)}·${vec(nv)} = ${vec(F)}`,
+      res(pt('F', F)),
+    ],
+  };
+} });
+
+def({ id: 'abs_spiegel', ch: 'abs', name: 'Punkt an Ebene spiegeln', lvl: 3, gen() {
+  const { nv, F, d, k, P } = pointPlaneSetup();
+  const P2 = V.sub(P, V.mul(2 * k, nv));
+  const L = lineInPlane(nv, P, nv, d);
+  return {
+    q: `Spiegle den Punkt ${pt('P', P)} an der Ebene ${plane('E', nv, d)}. Gib den Spiegelpunkt P' an.`,
+    type: 'vec', answer: P2,
+    hints: [
+      `Plan: (1) Lotgerade durch P mit Richtung ${ov('n')}, (2) Schnittpunkt mit E = Lotfußpunkt F, (3) von P aus <b>doppelt</b> so weit gehen: P' = P + 2·${ov('PF')}.`,
+      `Lotgerade ${lineEq('l', P, nv)} schneidet E bei t = ${n(-k)}. Für P' nimmst du einfach t = ${n(-2 * k)}.`,
+    ],
+    steps: [
+      `Lotgerade: ${lineEq('l', P, nv)}`,
+      ...L.steps,
+      `⇒ t = ${n(-k)} → Lotfußpunkt F = ${vec(F)}`,
+      `Spiegelpunkt: doppelter Parameter t = ${n(-2 * k)} → P' = ${vec(P)} + ${p(-2 * k)}·${vec(nv)} = ${vec(P2)}`,
+      `(Alternativ: P' = P + 2·${ov('PF')} mit ${ov('PF')} = ${vec(V.sub(F, P))}.)`,
+      res(`P'(${P2.map(x => n(x)).join(' | ')})`),
+    ],
+  };
+} });
+
+// =====================================================================
+// Berliner Grundkurs: Ebenen, Lagebeziehungen, Winkel, Abstände (über Lotfußpunkte)
+// =====================================================================
+const NV = ['n₁', 'n₂', 'n₃'];
+// Normalenvektor über ein LGS bestimmen (n·u = 0 und n·v = 0) – ohne Kreuzprodukt
+function normalLGS(u, v, nu = 'u', nvn = 'v') {
+  const pi = [0, 1, 2].find(i => u[i] !== 0), [q, r] = [0, 1, 2].filter(i => i !== pi);
+  const A = v[q] * u[pi] - u[q] * v[pi], B = v[r] * u[pi] - u[r] * v[pi];
+  let nq, nr;
+  if (A === 0) { nq = 1; nr = 0; } else if (B === 0) { nq = 0; nr = 1; } else { nq = B; nr = -A; }
+  const raw = []; raw[q] = nq * u[pi]; raw[r] = nr * u[pi]; raw[pi] = -(u[q] * nq + u[r] * nr);
+  const nRed = reduceVec(raw);
+  const e2 = [0, 0, 0]; e2[q] = A; e2[r] = B;
+  const steps = [
+    `Der Normalenvektor ${ov('n')} steht senkrecht auf ${ov(nu)} und ${ov(nvn)}, also ${ov('n')}·${ov(nu)} = 0 und ${ov('n')}·${ov(nvn)} = 0:<div class="lgs"><div>I: ${lin(u, NV)} = 0</div><div>II: ${lin(v, NV)} = 0</div></div>`,
+    `${NV[pi]} eliminieren: ${p(u[pi])}·II − ${p(v[pi])}·I ergibt ${lin(e2, NV)} = 0`,
+    `Zwei Gleichungen, drei Unbekannte → eine Unbekannte frei wählen. Wähle ${NV[q]} = ${n(raw[q])}, dann folgt ${NV[r]} = ${n(raw[r])} <small>(Probe: ${p(A)}·${p(raw[q])} + ${p(B)}·${p(raw[r])} = 0 ✓)</small>`,
+    `In I einsetzen und nach ${NV[pi]} auflösen: ${NV[pi]} = ${n(raw[pi])}`,
+    `${ov('n')} = ${vec(raw)}${gcdAll(raw) > 1 || raw.find(x => x !== 0) < 0 ? ` → gekürzt: ${vec(nRed)}` : ''}`,
+  ];
+  return { n: nRed, raw, steps };
+}
+const NORMAL_HINT = `Ansatz: ${ov('n')} = ${vec(NV)} mit ${ov('n')}·${ov('u')} = 0 und ${ov('n')}·${ov('v')} = 0. Das gibt ein LGS mit 2 Gleichungen und 3 Unbekannten – eine Unbekannte darfst du frei wählen. <small>(Wer das Kreuzprodukt kennt, kann es als Abkürzung nutzen.)</small>`;
+
+def({ id: 'ebe_normal', ch: 'ebe', name: 'Normalenvektor bestimmen', lvl: 2, gen() {
+  const A = rv(-4, 4), u = rvnz(-3, 3), v = rvNotPar(u, -3, 3), N = normalLGS(u, v);
+  return {
+    q: `Bestimme einen Normalenvektor der Ebene<br>${planeParam('E', A, u, v)}<br><small>Jedes Vielfache wird akzeptiert.</small>`,
+    type: 'vecpar', answer: N.n,
+    hints: [NORMAL_HINT, `Die Gleichungen lauten I: ${lin(u, NV)} = 0 und II: ${lin(v, NV)} = 0. Eliminiere eine Unbekannte und wähle dann eine frei.`],
+    steps: [...N.steps, res(`${ov('n')} = ${vec(N.n)}`)],
+  };
+} });
+
+def({ id: 'ebe_param2koord', ch: 'ebe', name: 'Parameterform → Koordinatenform', lvl: 2, gen() {
+  const A = rv(-4, 4), u = rvnz(-3, 3), v = rvNotPar(u, -3, 3), N = normalLGS(u, v), d = V.dot(N.n, A);
+  return {
+    q: `Wandle die Ebene in Koordinatenform um:<br>${planeParam('E', A, u, v)}`,
+    type: 'plane', answer: [...N.n, d],
+    hints: [`Zwei Schritte: (1) Normalenvektor ${ov('n')}, der auf beiden Spannvektoren senkrecht steht. (2) Ansatz n₁x₁ + n₂x₂ + n₃x₃ = d, Stützpunkt einsetzen ergibt d.`,
+      `Ein Normalenvektor ist ${vec(N.n)}. Jetzt d = ${ov('n')}·${vec(A)} berechnen.`],
+    steps: [`<b>Normalenvektor:</b>`, ...N.steps, `<b>Ansatz:</b> ${lin(N.n)} = d`,
+      `<b>Stützpunkt einsetzen:</b> d = ${N.n.map((k, i) => `${p(k)}·${p(A[i])}`).join(' + ')} = ${n(d)}`, res(plane('E', N.n, d))],
+  };
+} });
+
+def({ id: 'ebe_3p_koord', ch: 'ebe', name: 'Ebene durch drei Punkte (Koordinatenform)', lvl: 3, gen() {
+  const A = rv(-4, 4), u = rvnz(-3, 3), v = rvNotPar(u, -3, 3), B = V.add(A, u), C = V.add(A, v), N = normalLGS(u, v, 'AB', 'AC'), d = V.dot(N.n, A);
+  return {
+    q: `Bestimme eine Koordinatengleichung der Ebene durch ${pt('A', A)}, ${pt('B', B)} und ${pt('C', C)}.`,
+    type: 'plane', answer: [...N.n, d],
+    hints: [`Spannvektoren ${ov('AB')} und ${ov('AC')} berechnen, dann einen Normalenvektor, der auf beiden senkrecht steht. Zum Schluss A einsetzen, um d zu bekommen.`,
+      `${ov('AB')} = ${vec(u)}, ${ov('AC')} = ${vec(v)}. Ein Normalenvektor ist ${vec(N.n)}.`],
+    steps: [`<b>Spannvektoren:</b> ${ov('AB')} = ${vec(u)}, ${ov('AC')} = ${vec(v)}`, ...N.steps,
+      `<b>A einsetzen:</b> d = ${N.n.map((k, i) => `${p(k)}·${p(A[i])}`).join(' + ')} = ${n(d)}`,
+      `<small>Probe: B und C ergeben ebenfalls ${n(V.dot(N.n, B))} und ${n(V.dot(N.n, C))} ✓</small>`, res(plane('E', N.n, d))],
+  };
+} });
+
+def({ id: 'lag_schnittgerade', ch: 'lag', name: 'Schnittgerade zweier Ebenen', lvl: 3, gen() {
+  let n1, n2; do { n1 = rvnz(-3, 3); n2 = rvnz(-3, 3); } while (V.par(n1, n2));
+  const S = rv(-3, 3), d1 = V.dot(n1, S), d2 = V.dot(n2, S), N = normalLGS(n1, n2, 'n₁', 'n₂');
+  let k = 0; for (const c of [2, 1, 0]) { const [a, b] = [0, 1, 2].filter(i => i !== c); if (n1[a] * n2[b] - n1[b] * n2[a] !== 0) { k = c; break; } }
+  const [a, b] = [0, 1, 2].filter(i => i !== k);
+  return {
+    q: `Die Ebenen schneiden sich in einer Geraden g.<br>${plane('E₁', n1, d1)}<br>${plane('E₂', n2, d2)}<br>Gib einen Richtungsvektor von g an.<br><small>Jedes Vielfache wird akzeptiert.</small>`,
+    type: 'vecpar', answer: N.n,
+    hints: [`Die Schnittgerade liegt in beiden Ebenen, ihr Richtungsvektor ${ov('u')} steht also senkrecht auf <b>beiden</b> Normalenvektoren: ${ov('u')}·${ov('n₁')} = 0 und ${ov('u')}·${ov('n₂')} = 0.`,
+      `${ov('n₁')} = ${vec(n1)}, ${ov('n₂')} = ${vec(n2)}. Löse das LGS wie bei einem Normalenvektor (eine Unbekannte frei wählen).`],
+    steps: [`Richtungsvektor ${ov('u')} senkrecht zu ${ov('n₁')} = ${vec(n1)} und ${ov('n₂')} = ${vec(n2)} (gleiche Rechnung wie beim Normalenvektor):`,
+      ...N.steps.map(s => s.replace(/Normalenvektor/g, 'gesuchte Vektor')),
+      `<b>Stützpunkt</b> (für die vollständige Gleichung): Setze ${X[k]} = ${n(S[k])} und löse das 2×2-LGS aus beiden Ebenengleichungen → ${X[a]} = ${n(S[a])}, ${X[b]} = ${n(S[b])}. Also ${pt('S', S)}.`,
+      `Schnittgerade: ${lineEq('g', S, N.n)}`,
+      `<small>Alternative: Das LGS aus beiden Ebenengleichungen direkt lösen und dabei eine Variable als Parameter t setzen.</small>`,
+      res(`Richtungsvektor z. B. ${vec(N.n)}`)],
+  };
+} });
+
+// ---------- Abstände über Lotfußpunkte (Berlin: keine HNF nötig) ----------
+function lotSteps(P, nv, d, name = 'P') {
+  const L = lineInPlane(nv, P, nv, d), t = (d - L.nA) / L.nu, F = V.add(P, V.mul(t, nv));
+  return {
+    t, F, steps: [
+      `<b>Lotgerade</b> durch ${name} senkrecht zur Ebene (Richtung = Normalenvektor): ${lineEq('l', P, nv)}`,
+      ...L.steps,
+      `⇒ ${ct(L.nu)}t = ${n(d - L.nA)} ⇒ t = ${frac(d - L.nA, L.nu)}`,
+      `<b>Lotfußpunkt:</b> F = ${vec(P)} + ${Number.isInteger(t) ? p(t) : '(' + frac(d - L.nA, L.nu) + ')'}·${vec(nv)} = ${vec(F)}`,
+    ],
+  };
+}
+
+def({ id: 'abs_pe', ch: 'abs', name: 'Abstand Punkt – Ebene (Lotfußpunkt)', lvl: 2, gen() {
+  const { nv, len, d, k, P } = pointPlaneSetup();
+  const Lt = lotSteps(P, nv, d), PF = V.sub(Lt.F, P);
+  return {
+    q: `Berechne den Abstand des Punktes ${pt('P', P)} von der Ebene ${plane('E', nv, d)}.`,
+    type: 'num', answer: Math.abs(k) * len, unit: 'LE',
+    hints: [`Abstand über den <b>Lotfußpunkt</b>: (1) Lotgerade durch P in Richtung des Normalenvektors, (2) mit E schneiden → Lotfußpunkt F, (3) Abstand = |${ov('PF')}|.`,
+      `Lotgerade ${lineEq('l', P, nv)}. In E eingesetzt ergibt sich t = ${n(-k)}.`],
+    steps: [...Lt.steps, `${ov('PF')} = F − P = ${vec(PF)}`, lenSteps(PF, 'PF'), res(`d(P, E) = ${Math.abs(k) * len} LE`)],
+  };
+} });
+
+def({ id: 'abs_ee', ch: 'abs', name: 'Abstand paralleler Ebenen', lvl: 2, gen() {
+  const { n: nv, len } = niceNormal();
+  const P = rv(-3, 3), d1 = V.dot(nv, P), m = R.nz(-2, 2), d2 = d1 + m * V.len2(nv);
+  const scaled = R.chance(0.4), s = scaled ? R.pick([2, -2, 3]) : 1;
+  const Lt = lotSteps(P, nv, d2), PF = V.sub(Lt.F, P);
+  return {
+    q: `Die Ebenen sind parallel. Berechne ihren Abstand.<br>${plane('E₁', nv, d1)}<br>${plane('E₂', V.mul(s, nv), s * d2)}`,
+    type: 'num', answer: Math.abs(m) * len, unit: 'LE',
+    hints: [`Nimm einen beliebigen Punkt P aus E₁ und berechne seinen Abstand zu E₂ über den Lotfußpunkt.${scaled ? ` Tipp: E₂ vorher durch ${n(s)} teilen.` : ''}`,
+      `Ein Punkt von E₁ ist z. B. ${pt('P', P)} (einsetzen: ${n(d1)} ✓). Lotgerade: ${lineEq('l', P, nv)}.`],
+    steps: [scaled ? `E₂ durch ${n(s)} teilen: ${plane('E₂', nv, d2)}` : `Beide Ebenen haben den Normalenvektor ${vec(nv)} → parallel.`,
+      `Punkt aus E₁ wählen (zwei Koordinaten frei wählen, die dritte ausrechnen), z. B. ${pt('P', P)}.`,
+      ...Lt.steps, `${ov('PF')} = ${vec(PF)}`, lenSteps(PF, 'PF'), res(`d = ${Math.abs(m) * len} LE`)],
+  };
+} });
+
+def({ id: 'abs_ge', ch: 'abs', name: 'Abstand Gerade – parallele Ebene', lvl: 3, gen() {
+  const { n: nv, len } = niceNormal();
+  const F0 = rv(-3, 3), d = V.dot(nv, F0), m = R.nz(-2, 2), A = V.add(F0, V.mul(m, nv));
+  let u; do { u = reduceVec(V.cross(nv, rvNotPar(nv, -2, 2))); } while (V.zero(u) || Math.max(...u.map(Math.abs)) > 12);
+  const Lt = lotSteps(A, nv, d, 'A'), AF = V.sub(Lt.F, A);
+  return {
+    q: `Die Gerade ${lineEq('g', A, u)} verläuft parallel zur Ebene ${plane('E', nv, d)}.<br>Berechne den Abstand von g zu E.`,
+    type: 'num', answer: Math.abs(m) * len, unit: 'LE',
+    hints: [`Weil g parallel zu E ist, haben alle Punkte von g denselben Abstand zu E. Nimm einfach den Stützpunkt A und bestimme seinen Abstand über den Lotfußpunkt.`,
+      `Lotgerade durch ${pt('A', A)}: ${lineEq('l', A, nv)}.`],
+    steps: [`Kontrolle parallel: ${dotSteps(nv, u, 'n', 'u')} → ${ov('u')} ⊥ ${ov('n')}, also g parallel zu E ✓`,
+      ...Lt.steps, `${ov('AF')} = ${vec(AF)}`, lenSteps(AF, 'AF'), res(`d(g, E) = ${Math.abs(m) * len} LE`)],
+  };
+} });
+
+// ---------- Vektoren: Einheitsvektor, Teilverhältnis, Linearkombination ----------
+def({ id: 'vek_einheit', ch: 'vek', name: 'Einheitsvektor', lvl: 2, gen() {
+  const { n: v, len } = niceNormal(); const e = v.map(x => x / len);
+  return {
+    q: `Bestimme den Einheitsvektor (Länge 1) in Richtung von ${ov('v')} = ${vec(v)}.<br><small>Brüche wie 2/3 sind erlaubt.</small>`,
+    type: 'vec', answer: e, tol: 0.006,
+    hints: [`Einheitsvektor = Vektor geteilt durch seine Länge: ${ov('v')}₀ = ${fracOver('1', `|${ov('v')}|`)} · ${ov('v')}.`,
+      `|${ov('v')}| = ${sq(V.len2(v))} = ${len}. Teile jede Zeile durch ${len}.`],
+    steps: [lenSteps(v), `${ov('v')}₀ = ${fracOver('1', len)} · ${vec(v)} = ${vec(v.map(x => frac(x, len)))}`,
+      `<small>Probe: Die Länge des Ergebnisses ist 1.</small>`, res(`${ov('v')}₀ = ${vec(v.map(x => frac(x, len)))}`)],
+  };
+} });
+
+def({ id: 'vek_teil', ch: 'vek', name: 'Teilverhältnis einer Strecke', lvl: 2, gen() {
+  const A = rv(-5, 5), w = rvnz(-2, 2), [m, k] = R.pick([[1, 2], [2, 1], [1, 3], [3, 1], [2, 3], [3, 2], [1, 1]]);
+  const B = V.add(A, V.mul(m + k, w)), T = V.add(A, V.mul(m, w)), AB = V.sub(B, A);
+  return {
+    q: `Der Punkt T teilt die Strecke von ${pt('A', A)} nach ${pt('B', B)} im Verhältnis ${m} : ${k}.<br>Berechne T.`,
+    type: 'vec', answer: T,
+    hints: [`Verhältnis ${m} : ${k} heißt: Die Strecke wird in ${m + k} gleiche Teile geteilt, T liegt ${m} Teile von A entfernt. Also T = A + ${frac(m, m + k)}·${ov('AB')}.`,
+      `${ov('AB')} = ${vec(AB)}. ${frac(m, m + k)}·${ov('AB')} = ${vec(V.mul(m, w))}.`],
+    steps: [`${ov('AB')} = B − A = ${vec(AB)}`, `Anteil von A aus: ${m} von ${m + k} Teilen = ${frac(m, m + k)}`,
+      `T = A + ${frac(m, m + k)}·${ov('AB')} = ${vec(A)} + ${vec(V.mul(m, w))} = ${vec(T)}`, res(pt('T', T))],
+  };
+} });
+
+def({ id: 'vek_lk', ch: 'vek', name: 'Vektor als Linearkombination', lvl: 3, gen() {
+  const a = rvnz(-3, 3), b = rvNotPar(a, -3, 3), r0 = R.nz(-3, 3), s0 = R.nz(-3, 3), c = V.add(V.mul(r0, a), V.mul(s0, b));
+  let i, j; for (const [x, y] of [[0, 1], [0, 2], [1, 2]]) if (a[x] * b[y] - a[y] * b[x] !== 0) { i = x; j = y; break; }
+  const k = 3 - i - j, eq = q => `${lin([a[q], b[q]], ['r', 's'])} = ${n(c[q])}`;
+  return {
+    q: `Stelle ${ov('c')} = ${vec(c)} als Linearkombination von ${ov('a')} = ${vec(a)} und ${ov('b')} = ${vec(b)} dar, d. h. bestimme r und s mit ${ov('c')} = r·${ov('a')} + s·${ov('b')}.`,
+    type: 'vec', answer: [r0, s0], labels: ['r =', 's ='],
+    hints: [`Schreibe ${ov('c')} = r·${ov('a')} + s·${ov('b')} zeilenweise auf. Das sind 3 Gleichungen mit 2 Unbekannten: zwei lösen, mit der dritten prüfen.`,
+      `Zeile ${i + 1}: ${eq(i)}, Zeile ${j + 1}: ${eq(j)}.`],
+    steps: [`Ansatz: ${vec(c)} = r·${vec(a)} + s·${vec(b)}<ul class="calc">${[0, 1, 2].map(q => `<li>${q + 1}. Zeile: ${eq(q)}</li>`).join('')}</ul>`,
+      `Zeilen ${i + 1} und ${j + 1} lösen (Additions- oder Einsetzverfahren): r = ${n(r0)}, s = ${n(s0)}`,
+      `Probe in Zeile ${k + 1}: ${p(a[k])}·${p(r0)} + ${p(b[k])}·${p(s0)} = ${n(c[k])} ✓`, res(`${ov('c')} = ${n(r0)}·${ov('a')} ${s0 < 0 ? '−' : '+'} ${Math.abs(s0)}·${ov('b')}`)],
+  };
+} });
+
+def({ id: 'fig_dreiecksflaeche', ch: 'fig', name: 'Flächeninhalt eines Dreiecks', lvl: 3, gen() {
+  const A = rv(-4, 4), u = rvnz(-4, 4), v = rvNotPar(u, -4, 4), B = V.add(A, u), C = V.add(A, v);
+  const d = V.dot(u, v), lu = V.len2(u), lv = V.len2(v), cs = d / Math.sqrt(lu * lv), al = Math.acos(cs), F = 0.5 * Math.sqrt(lu * lv - d * d);
+  return {
+    q: `Berechne den Flächeninhalt des Dreiecks mit ${pt('A', A)}, ${pt('B', B)} und ${pt('C', C)}.<br><small>Runde auf 2 Nachkommastellen.</small>`,
+    type: 'num', answer: F, tol: 0.02, unit: 'FE',
+    hints: [`Flächenformel mit Winkel: A = ½ · |${ov('AB')}| · |${ov('AC')}| · sin α, wobei α der Winkel bei A ist. α bekommst du über das Skalarprodukt.`,
+      `${ov('AB')} = ${vec(u)}, ${ov('AC')} = ${vec(v)}, Skalarprodukt ${n(d)}, Längen ${sq(lu)} und ${sq(lv)} → α ≈ ${n(deg(al), 1)}°.`],
+    steps: [`${ov('AB')} = ${vec(u)}, ${ov('AC')} = ${vec(v)}`, dotSteps(u, v, 'AB', 'AC'),
+      `cos α = ${n(d)} / (${sq(lu)}·${sq(lv)}) ≈ ${n(cs, 4)} ⇒ α ≈ ${n(deg(al), 2)}°`,
+      `A = ½ · ${sq(lu)} · ${sq(lv)} · sin(${n(deg(al), 2)}°) ≈ ½ · ${n(Math.sqrt(lu), 3)} · ${n(Math.sqrt(lv), 3)} · ${n(Math.sin(al), 4)} ≈ ${n(F)}`,
+      `<small>Mit ungerundeten Werten weiterrechnen!</small>`, res(`A ≈ ${n(F)} FE`)],
+  };
+} });
+
+// =====================================================================
+// Abi-Training Berlin: Prüfungsteil A (hilfsmittelfrei) und Teil B (komplexe Aufgaben)
+// =====================================================================
+// Teil A: kurze Aufgaben mit glatten Zahlen, ohne Taschenrechner lösbar
+const HMF = ['vek_ab', 'vek_mitte', 'vek_linkomb', 'vek_parallelogramm', 'vek_kollinear', 'vek_teil', 'skp_dot', 'skp_orth', 'skp_fehlend',
+  'ger_punktprobe', 'ger_spur', 'ger_lage', 'ebe_np', 'ebe_punktprobe', 'ebe_spur', 'ebe_pprobe', 'lag_ge_lage', 'lag_ee_lage', 'lgs_art', 'abs_pe'];
+function teilA() {
+  const ids = R.shuffle(HMF.filter(id => TYPES.some(t => t.id === id))).slice(0, 5);
+  const parts = ids.map((id, i) => { const t = generate(id); t.be = { 1: 3, 2: 5, 3: 5 }[t.lvl]; t.label = `Aufgabe ${i + 1}`; return t; });
+  return { id: 'teilA', title: 'Prüfungsteil A – ohne Hilfsmittel', intro: 'Ohne Taschenrechner und ohne Formelsammlung. Im Abitur hast du für den gesamten Teil A (alle drei Sachgebiete) bis zu 100 Minuten.', parts };
+}
+
+function part(o) { return Object.assign({ lvl: 3, hints: [], steps: [] }, o); }
+const L = s => `<b>${s})</b> `;
+
+const EXAMS = [];
+// ---------- Glaspyramide ----------
+EXAMS.push({ id: 'pyramide', title: 'Glaspyramide', gen() {
+  const a = R.pick([4, 8]), h = R.pick([2, 4, 6]);
+  const Ap = [0, 0, 0], B = [a, 0, 0], C = [a, a, 0], D = [0, a, 0], S = [a / 2, a / 2, h];
+  const BC = V.sub(C, B), BS = V.sub(S, B), N = normalLGS(BC, BS, 'BC', 'BS'), nn = N.n, d = V.dot(nn, B);
+  const AS = V.sub(S, Ap), kante = V.len(AS), vol = a * a * h / 3;
+  const cosA = Math.abs(nn[2]) / V.len(nn), ang = deg(Math.acos(cosA));
+  const Q = [3 * a / 4, a / 2, h / 2];
+  let w; do { w = [-R.int(1, 3), R.int(-1, 1), -1]; } while (V.dot(nn, w) === 0);
+  const t0 = R.pick([2, 3, 4]), Lp = V.sub(Q, V.mul(t0, w)), Lg = lineInPlane(nn, Lp, w, d);
+  const M = [a / 2, a / 2, 0], Lt = lotSteps(M, nn, d, 'M'), MF = V.sub(Lt.F, M), dist = V.len(MF);
+  const ctx = `Ein Museum plant eine Glaspyramide mit quadratischer Grundfläche ABCD und Spitze S. Im Koordinatensystem (1 LE = 1 m) gilt:<br>${pt('A', Ap)}, ${pt('B', B)}, ${pt('C', C)}, ${pt('D', D)}, ${pt('S', S)}.<br>Die Grundfläche liegt in der x₁x₂-Ebene (Boden).`;
+  return { id: 'pyramide', title: 'Glaspyramide', intro: ctx, parts: [
+    part({ label: 'a', be: 2, q: `${L('a')}Berechne die Länge der Kante AS.<br><small>Auf 2 Nachkommastellen runden.</small>`, type: 'num', answer: kante, tol: 0.011, unit: 'm',
+      hints: [`Kantenlänge = Länge des Vektors ${ov('AS')} = S − A.`, `${ov('AS')} = ${vec(AS)}.`],
+      steps: [`${ov('AS')} = ${vec(AS)}`, lenSteps(AS, 'AS'), res(`|AS| ≈ ${n(kante)} m`)] }),
+    part({ label: 'b', be: 2, q: `${L('b')}Berechne das Volumen der Pyramide.`, type: 'num', answer: vol, tol: 0.011, unit: 'm³',
+      hints: [`V = ⅓ · G · h. G ist die quadratische Grundfläche, h die Höhe der Spitze über dem Boden.`, `G = ${a}² = ${a * a}, h = ${h} (x₃-Koordinate von S).`],
+      steps: [`Grundfläche: Quadrat mit Seitenlänge |${ov('AB')}| = ${a} → G = ${a * a} m²`, `Höhe: Die Grundfläche liegt in x₃ = 0, also h = ${h} m`, `V = ⅓ · ${a * a} · ${h} = ${frac(a * a * h, 3)}${Number.isInteger(vol) ? '' : ' ≈ ' + n(vol)}`, res(`V ${Number.isInteger(vol) ? '=' : '≈'} ${n(vol)} m³`)] }),
+    part({ label: 'c', be: 4, q: `${L('c')}Die Seitenfläche BCS liegt in der Ebene E. Bestimme eine Koordinatengleichung von E.`, type: 'plane', answer: [...nn, d],
+      hints: [`Spannvektoren ${ov('BC')} und ${ov('BS')}, dann einen Normalenvektor über ${ov('n')}·${ov('BC')} = 0 und ${ov('n')}·${ov('BS')} = 0.`, `${ov('BC')} = ${vec(BC)}, ${ov('BS')} = ${vec(BS)}. Ein Normalenvektor ist ${vec(nn)}.`],
+      steps: [`Spannvektoren: ${ov('BC')} = ${vec(BC)}, ${ov('BS')} = ${vec(BS)}`, ...N.steps, `B einsetzen: d = ${nn.map((k, i) => `${p(k)}·${p(B[i])}`).join(' + ')} = ${n(d)}`, res(plane('E', nn, d))] }),
+    part({ label: 'd', be: 3, q: `${L('d')}Berechne den Neigungswinkel der Seitenfläche BCS gegenüber dem Boden.<br><small>In Grad, auf 1 Nachkommastelle.</small>`, type: 'num', answer: ang, tol: 0.11, unit: '°',
+      hints: [`Winkel zwischen zwei Ebenen = Winkel zwischen ihren Normalenvektoren. Der Boden (x₁x₂-Ebene) hat den Normalenvektor ${vec([0, 0, 1])}.`, `cos α = |${ov('n')}·${vec([0, 0, 1])}| / (|${ov('n')}| · 1) mit ${ov('n')} = ${vec(nn)}.`],
+      steps: [`${ov('n_E')} = ${vec(nn)}, ${ov('n_Boden')} = ${vec([0, 0, 1])}`, `cos α = |${n(nn[2])}| / ${sq(V.len2(nn))} ≈ ${n(cosA, 4)}`, `α = cos⁻¹(${n(cosA, 4)}) ≈ ${n(ang, 1)}°`, res(`α ≈ ${n(ang, 1)}°`)] }),
+    part({ label: 'e', be: 5, q: `${L('e')}Ein Laserstrahl verläuft entlang der Geraden ${lineEq('g', Lp, w)}.<br>Berechne den Punkt, in dem er auf die Ebene E der Seitenfläche BCS trifft.`, type: 'vec', answer: Q,
+      hints: [`Durchstoßpunkt: Setze die Zeilen der Geraden in die Koordinatengleichung von E ein und löse nach t.`, `Einsetzen ergibt ${n(Lg.nA)} ${Lg.nu < 0 ? '−' : '+'} ${co(Lg.nu)}t = ${n(d)}.`],
+      steps: [...Lg.steps, `⇒ t = ${n(t0)}`, `In g einsetzen: ${vec(Lp)} + ${p(t0)}·${vec(w)} = ${vec(Q)}`, res(pt('P', Q))] }),
+    part({ label: 'f', be: 4, q: `${L('f')}M ist der Mittelpunkt der Grundfläche. Berechne den Abstand von M zur Ebene E.<br><small>Über den Lotfußpunkt; auf 2 Nachkommastellen runden.</small>`, type: 'num', answer: dist, tol: 0.011, unit: 'm',
+      hints: [`Erst M bestimmen (Mittelpunkt der Diagonale AC). Dann Lotgerade durch M mit Richtung ${ov('n')}, mit E schneiden, Abstand |${ov('MF')}|.`, `${pt('M', M)}. Lotgerade ${lineEq('l', M, nn)}.`],
+      steps: [`M = ½·(A + C) = ${vec(M)}`, ...Lt.steps, `${ov('MF')} = ${vec(MF.map(x => Number.isInteger(x) ? x : Math.round(x * 1000) / 1000))}`, `|${ov('MF')}| ≈ ${n(dist)}`, res(`d(M, E) ≈ ${n(dist)} m`)] }),
+  ] };
+} });
+
+// ---------- Flugbahnen ----------
+EXAMS.push({ id: 'flug', title: 'Flugbahnen', gen() {
+  const U = R.pick([[[4, 4, 2], 6], [[6, 3, 2], 7], [[3, 6, 2], 7], [[8, 4, 1], 9], [[4, 8, 1], 9]]);
+  const u = U[0].map((x, i) => i < 2 && R.chance(0.5) ? -x : x), len = U[1];
+  const A = [R.int(-30, 30), R.int(-30, 30), R.int(1, 2)];
+  const kind = R.chance(0.5) ? 2 : 3;
+  let w, B, s0, t0;
+  if (kind === 2) {
+    s0 = R.int(1, 3); t0 = s0 + R.int(1, 2);
+    do { w = [R.nz(-6, 6), R.nz(-6, 6), R.int(-1, 1)]; } while (V.par(u, w));
+    const S = V.add(A, V.mul(s0, u)); B = V.sub(S, V.mul(t0, w));
+  } else {
+    do { w = [R.nz(-6, 6), R.nz(-6, 6), R.int(-1, 1)]; } while (V.par(u, w));
+    do { B = [R.int(-30, 30), R.int(-30, 30), R.int(5, 9)]; } while (V.dot(V.sub(B, A), V.cross(u, w)) === 0);
+  }
+  const P2 = V.add(A, V.mul(2, u)), sinA = u[2] / len, ang = deg(Math.asin(sinA));
+  const sol = lineLineSteps(A, u, B, w);
+  const ctx = `Zwei Flugzeuge F₁ und F₂ bewegen sich geradlinig mit konstanter Geschwindigkeit. Ihre Positionen werden beschrieben durch<br>F₁: ${ov('x')} = ${vec(A)} + s·${vec(u)} und F₂: ${ov('x')} = ${vec(B)} + t·${vec(w)}<br>(s, t in Minuten seit Beobachtungsbeginn, 1 LE = 1 km; die x₁x₂-Ebene ist der Erdboden).`;
+  const parts = [
+    part({ label: 'a', be: 2, lvl: 1, q: `${L('a')}Berechne die Position von F₁ zwei Minuten nach Beobachtungsbeginn.`, type: 'vec', answer: P2,
+      hints: [`Setze s = 2 in die Gleichung von F₁ ein.`, `2·${vec(u)} = ${vec(V.mul(2, u))}.`],
+      steps: [`${vec(A)} + 2·${vec(u)} = ${vec(A)} + ${vec(V.mul(2, u))} = ${vec(P2)}`, res(pt('P', P2))] }),
+    part({ label: 'b', be: 2, lvl: 2, q: `${L('b')}Berechne die Geschwindigkeit von F₁ in km/h.`, type: 'num', answer: len * 60, unit: 'km/h',
+      hints: [`In einer Minute legt F₁ genau den Richtungsvektor zurück. Seine Länge ist die Geschwindigkeit in km pro Minute.`, `|${ov('u')}| = ${sq(V.len2(u))} = ${len} km/min. Jetzt mal 60.`],
+      steps: [lenSteps(u, 'u'), `${len} km/min · 60 = ${len * 60} km/h`, res(`v = ${len * 60} km/h`)] }),
+    part({ label: 'c', be: 3, q: `${L('c')}Berechne den Winkel, unter dem F₁ steigt (Winkel zwischen Flugbahn und Erdboden).<br><small>In Grad, auf 1 Nachkommastelle.</small>`, type: 'num', answer: ang, tol: 0.11, unit: '°',
+      hints: [`Winkel zwischen Gerade und Ebene: sin α = |${ov('n')}·${ov('u')}| / (|${ov('n')}|·|${ov('u')}|). Der Erdboden hat ${ov('n')} = ${vec([0, 0, 1])}.`, `sin α = ${u[2]} / ${len}.`],
+      steps: [`${ov('n')}·${ov('u')} = ${u[2]}, |${ov('n')}| = 1, |${ov('u')}| = ${len}`, `sin α = ${frac(u[2], len)} ≈ ${n(sinA, 4)}`, `α = sin⁻¹(${n(sinA, 4)}) ≈ ${n(ang, 1)}°`, res(`α ≈ ${n(ang, 1)}°`)] }),
+    part({ label: 'd', be: 5, q: `${L('d')}Untersuche die Lage der beiden Flugbahnen zueinander.`, type: 'choice', options: ['identisch', 'echt parallel', 'schneiden sich', 'windschief'], answer: kind,
+      hints: [`Erst Richtungsvektoren vergleichen (Vielfache?), dann Bahnen gleichsetzen: ${vec(A)} + s·${vec(u)} = ${vec(B)} + t·${vec(w)}. Zwei Zeilen lösen, mit der dritten prüfen.`, `Die Richtungsvektoren sind keine Vielfachen. Löse das LGS aus zwei Zeilen nach s und t.`],
+      steps: [...sol.steps, res(kind === 2 ? 'Die Flugbahnen schneiden sich.' : 'Die Flugbahnen sind windschief.')] }),
+  ];
+  if (kind === 2) {
+    const S = V.add(A, V.mul(s0, u));
+    parts.push(part({ label: 'e', be: 4, q: `${L('e')}Die Flugbahnen schneiden sich. Gib den Schnittpunkt an.`, type: 'vec', answer: S,
+      hints: [`Du hast in d) die Parameter s und t bestimmt. Setze s in F₁ ein.`, `s = ${s0}.`],
+      steps: [`Aus d): s = ${s0}, t = ${t0}`, `${vec(A)} + ${s0}·${vec(u)} = ${vec(S)}`, res(pt('S', S))] }));
+    parts.push(part({ label: 'f', be: 4, q: `${L('f')}Besteht Kollisionsgefahr? Gib an, wie viele Minuten nach F₁ das Flugzeug F₂ den Schnittpunkt erreicht.`, type: 'num', answer: t0 - s0, unit: 'min',
+      hints: [`Die Parameter s und t sind Zeiten. F₁ ist zum Zeitpunkt s im Schnittpunkt, F₂ zum Zeitpunkt t.`, `s = ${s0}, t = ${t0}.`],
+      steps: [`F₁ erreicht S nach s = ${s0} min, F₂ nach t = ${t0} min.`, `Differenz: ${t0} − ${s0} = ${t0 - s0} min → die Flugzeuge sind nicht gleichzeitig dort, also keine Kollision (nur die Bahnen kreuzen sich).`, res(`${t0 - s0} Minuten später`)] }));
+  } else {
+    const k = R.int(2, 4), H = A[2] + k * u[2], P = V.add(A, V.mul(k, u));
+    parts.push(part({ label: 'e', be: 4, q: `${L('e')}Eine Wolkendecke liegt in ${H} km Höhe (Ebene x₃ = ${H}). Nach wie vielen Minuten erreicht F₁ die Wolkendecke?`, type: 'num', answer: k, unit: 'min',
+      hints: [`Die Höhe ist die x₃-Koordinate. Setze die 3. Zeile von F₁ gleich ${H}.`, `${A[2]} + ${co(u[2])}s = ${H}.`],
+      steps: [`3. Zeile: ${A[2]} + ${ct(u[2])}s = ${H} ⇒ ${ct(u[2])}s = ${H - A[2]} ⇒ s = ${k}`, res(`nach ${k} Minuten`)] }));
+    parts.push(part({ label: 'f', be: 4, lvl: 2, q: `${L('f')}In welchem Punkt durchstößt F₁ die Wolkendecke?`, type: 'vec', answer: P,
+      hints: [`Setze das Ergebnis aus e) in die Gleichung von F₁ ein.`, `s = ${k}.`],
+      steps: [`${vec(A)} + ${k}·${vec(u)} = ${vec(P)}`, res(pt('W', P))] }));
+  }
+  return { id: 'flug', title: 'Flugbahnen', intro: ctx, parts };
+} });
+
+// ---------- Würfel mit abgeschnittener Ecke ----------
+EXAMS.push({ id: 'wuerfel', title: 'Würfel mit Schnittebene', gen() {
+  const k = R.pick([3, 6]);
+  const names = { '000': 'A', '100': 'B', '110': 'C', '010': 'D', '001': 'E', '101': 'F', '111': 'G', '011': 'H' };
+  const bits = R.pick(Object.keys(names)), c = bits.split('').map(Number);
+  const P = c.map(x => x * k), nbs = [0, 1, 2].map(i => { const b = c.slice(); b[i] = 1 - b[i]; return b; });
+  const NB = nbs.map(b => b.map(x => x * k)), nbNames = nbs.map(b => names[b.join('')]), pn = names[bits];
+  const u = V.sub(NB[1], NB[0]), v = V.sub(NB[2], NB[0]), N = normalLGS(u, v, nbNames[0] + nbNames[1], nbNames[0] + nbNames[2]), nn = N.n, d = V.dot(nn, NB[0]);
+  const Lt = lotSteps(P, nn, d, pn), F = Lt.F, PF = V.sub(F, P), dist = V.len(PF), P2 = V.add(P, V.mul(2, PF));
+  const ang = deg(Math.acos(1 / Math.sqrt(3)));
+  const ctx = `Ein Würfel ABCDEFGH aus Holz hat die Ecken ${pt('A', [0, 0, 0])}, ${pt('B', [k, 0, 0])}, ${pt('C', [k, k, 0])}, ${pt('D', [0, k, 0])} und ${pt('E', [0, 0, k])}, ${pt('F', [k, 0, k])}, ${pt('G', [k, k, k])}, ${pt('H', [0, k, k])} (1 LE = 1 cm).<br>Die Ecke ${pn} wird abgesägt. Der Schnitt verläuft durch die Ecken ${nbNames.join(', ')} und liegt in der Ebene T.`;
+  return { id: 'wuerfel', title: 'Würfel mit Schnittebene', intro: ctx, parts: [
+    part({ label: 'a', be: 4, q: `${L('a')}Bestimme eine Koordinatengleichung der Ebene T.`, type: 'plane', answer: [...nn, d],
+      hints: [`Ebene durch drei Punkte: zwei Spannvektoren, Normalenvektor über das Skalarprodukt, dann einen Punkt einsetzen.`, `Spannvektoren ${ov(nbNames[0] + nbNames[1])} = ${vec(u)} und ${ov(nbNames[0] + nbNames[2])} = ${vec(v)}. Normalenvektor z. B. ${vec(nn)}.`],
+      steps: [`Spannvektoren: ${ov(nbNames[0] + nbNames[1])} = ${vec(u)}, ${ov(nbNames[0] + nbNames[2])} = ${vec(v)}`, ...N.steps, `${nbNames[0]} einsetzen: d = ${n(d)}`, res(plane('T', nn, d))] }),
+    part({ label: 'b', be: 3, q: `${L('b')}Berechne den Winkel zwischen der Schnittebene T und der Grundfläche ABCD.<br><small>In Grad, auf 1 Nachkommastelle.</small>`, type: 'num', answer: ang, tol: 0.11, unit: '°',
+      hints: [`Winkel zwischen Ebenen = Winkel zwischen den Normalenvektoren (mit Betrag im Zähler). Die Grundfläche liegt in x₃ = 0, Normalenvektor ${vec([0, 0, 1])}.`, `cos α = |${n(nn[2])}| / (${sq(V.len2(nn))} · 1).`],
+      steps: [`cos α = |${ov('n_T')}·${vec([0, 0, 1])}| / (|${ov('n_T')}| · 1) = 1 / ${sq(3)} ≈ ${n(1 / Math.sqrt(3), 4)}`, `α ≈ ${n(ang, 1)}°`, res(`α ≈ ${n(ang, 1)}°`)] }),
+    part({ label: 'c', be: 4, q: `${L('c')}Bestimme den Lotfußpunkt L der Ecke ${pn} auf der Ebene T.`, type: 'vec', answer: F,
+      hints: [`Lotgerade durch ${pn} mit Richtung des Normalenvektors aufstellen und mit T schneiden.`, `Lotgerade ${lineEq('l', P, nn)}. Einsetzen ergibt t = ${n(Lt.t)}.`],
+      steps: [...Lt.steps, res(pt('L', F))] }),
+    part({ label: 'd', be: 3, lvl: 2, q: `${L('d')}Berechne den Abstand der Ecke ${pn} von der Ebene T.<br><small>Auf 2 Nachkommastellen runden.</small>`, type: 'num', answer: dist, tol: 0.011, unit: 'cm',
+      hints: [`Der Abstand ist die Länge von ${ov(pn + 'L')}.`, `${ov(pn + 'L')} = ${vec(PF)}.`],
+      steps: [`${ov(pn + 'L')} = L − ${pn} = ${vec(PF)}`, lenSteps(PF, pn + 'L'), res(`d ≈ ${n(dist)} cm`)] }),
+    part({ label: 'e', be: 3, q: `${L('e')}Die Ecke ${pn} wird an der Ebene T gespiegelt. Berechne den Spiegelpunkt ${pn}'.`, type: 'vec', answer: P2,
+      hints: [`Spiegelpunkt = vom Punkt aus doppelt so weit wie bis zum Lotfußpunkt: ${pn}' = ${pn} + 2·${ov(pn + 'L')}.`, `${ov(pn + 'L')} = ${vec(PF)}.`],
+      steps: [`${pn}' = ${pn} + 2·${ov(pn + 'L')} = ${vec(P)} + 2·${vec(PF)} = ${vec(P2)}`, res(`${pn}'(${P2.map(x => n(x)).join(' | ')})`)] }),
+    part({ label: 'f', be: 3, lvl: 2, q: `${L('f')}Berechne das Volumen des abgesägten Stücks (Pyramide mit den Ecken ${pn}, ${nbNames.join(', ')}).`, type: 'num', answer: k ** 3 / 6, tol: 0.011, unit: 'cm³',
+      hints: [`Die drei Kanten an der Ecke ${pn} stehen senkrecht aufeinander und sind alle ${k} cm lang. Nimm ein rechtwinkliges Dreieck als Grundfläche.`, `G = ½ · ${k} · ${k} = ${k * k / 2}, Höhe h = ${k}. V = ⅓·G·h.`],
+      steps: [`Grundfläche: rechtwinkliges Dreieck mit Katheten ${k} und ${k} → G = ½·${k}·${k} = ${n(k * k / 2)} cm²`, `Höhe: die dritte Kante, h = ${k} cm`, `V = ⅓ · ${n(k * k / 2)} · ${k} = ${n(k ** 3 / 6)} cm³`, res(`V = ${n(k ** 3 / 6)} cm³`)] }),
+  ] };
+} });
+
+// ---------- Haus mit Satteldach ----------
+EXAMS.push({ id: 'haus', title: 'Haus mit Satteldach', gen() {
+  const a = R.pick([6, 8, 10]), b = R.pick([8, 10, 12]), w = R.pick([3, 4]), r = R.pick([2, 3, 4]), h = w + r;
+  const E = [0, 0, w], P = [a / 2, 0, h], H = [0, b, w], Q = [a / 2, b, h];
+  const EP = V.sub(P, E), EH = V.sub(H, E), N = normalLGS(EP, EH, 'EP', 'EH'), nn = N.n, d = V.dot(nn, E);
+  const sparren = V.len(EP), cosA = Math.abs(nn[2]) / V.len(nn), ang = deg(Math.acos(cosA));
+  const K = [1, b / 2, h + 1], s = [R.int(1, 3), R.int(-2, 2), -1], tK = K[2], Sh = V.add(K, V.mul(tK, s));
+  const sinS = 1 / V.len(s), angS = deg(Math.asin(sinS));
+  const onRoof = R.chance(0.5), lam = R.int(1, b - 1);
+  const Rp = onRoof ? V.add(P, [0, lam, 0]) : V.add(P, [0, lam, 1]);
+  const ctx = `Ein Haus hat einen rechteckigen Grundriss und ein Satteldach. Im Koordinatensystem (1 LE = 1 m, x₁x₂-Ebene = Erdboden) haben die oberen Ecken der Wände die Koordinaten ${pt('E', E)}, ${pt('F', [a, 0, w])}, ${pt('G', [a, b, w])}, ${pt('H', H)}. Der Dachfirst verläuft von ${pt('P', P)} nach ${pt('Q', Q)}.<br>Die linke Dachfläche ist das Rechteck EPQH.`;
+  return { id: 'haus', title: 'Haus mit Satteldach', intro: ctx, parts: [
+    part({ label: 'a', be: 2, lvl: 1, q: `${L('a')}Berechne die Länge eines Dachsparrens von E nach P.<br><small>Auf 2 Nachkommastellen runden.</small>`, type: 'num', answer: sparren, tol: 0.011, unit: 'm',
+      hints: [`Länge des Vektors ${ov('EP')}.`, `${ov('EP')} = ${vec(EP)}.`],
+      steps: [`${ov('EP')} = ${vec(EP)}`, lenSteps(EP, 'EP'), res(`|EP| ≈ ${n(sparren)} m`)] }),
+    part({ label: 'b', be: 5, q: `${L('b')}Bestimme eine Koordinatengleichung der Ebene D, in der die linke Dachfläche liegt.`, type: 'plane', answer: [...nn, d],
+      hints: [`Spannvektoren ${ov('EP')} und ${ov('EH')}, Normalenvektor über das Skalarprodukt, dann E einsetzen.`, `${ov('EP')} = ${vec(EP)}, ${ov('EH')} = ${vec(EH)}. Normalenvektor z. B. ${vec(nn)}.`],
+      steps: [`Spannvektoren: ${ov('EP')} = ${vec(EP)}, ${ov('EH')} = ${vec(EH)}`, ...N.steps, `E einsetzen: d = ${n(d)}`, res(plane('D', nn, d))] }),
+    part({ label: 'c', be: 3, q: `${L('c')}Berechne den Neigungswinkel des Daches gegenüber der Horizontalen.<br><small>In Grad, auf 1 Nachkommastelle.</small>`, type: 'num', answer: ang, tol: 0.11, unit: '°',
+      hints: [`Winkel zwischen der Dachebene und der x₁x₂-Ebene: über die Normalenvektoren, ${ov('n')}_Boden = ${vec([0, 0, 1])}.`, `cos α = |${n(nn[2])}| / ${sq(V.len2(nn))}.`],
+      steps: [`cos α = |${ov('n_D')}·${vec([0, 0, 1])}| / |${ov('n_D')}| = ${Math.abs(nn[2])} / ${sq(V.len2(nn))} ≈ ${n(cosA, 4)}`, `α ≈ ${n(ang, 1)}°`, `<small>Kontrolle ohne Vektoren: tan α = ${r} / ${a / 2} → α ≈ ${n(deg(Math.atan(r / (a / 2))), 1)}°</small>`, res(`α ≈ ${n(ang, 1)}°`)] }),
+    part({ label: 'd', be: 2, lvl: 2, q: `${L('d')}Ein Vogel sitzt im Punkt ${pt('R', Rp)}. Sitzt er auf der Ebene D der linken Dachfläche?`, type: 'choice', options: ['Ja', 'Nein'], answer: onRoof ? 0 : 1,
+      hints: [`Punktprobe: Koordinaten von R in die Gleichung von D einsetzen.`, `Linke Seite ausrechnen und mit ${n(d)} vergleichen.`],
+      steps: [`${nn.map((c2, i) => c2 === 0 ? null : `${p(c2)}·${p(Rp[i])}`).filter(Boolean).join(' + ')} = ${n(V.dot(nn, Rp))} ${V.dot(nn, Rp) === d ? '=' : '≠'} ${n(d)}`, res(onRoof ? 'Ja, R liegt in D.' : 'Nein, R liegt nicht in D.')] }),
+    part({ label: 'e', be: 4, q: `${L('e')}Die Spitze eines Schornsteins ist ${pt('K', K)}. Sonnenstrahlen haben die Richtung ${vec(s)}. Berechne den Schattenpunkt von K auf der Ebene x₃ = 0.`, type: 'vec', answer: Sh,
+      hints: [`Gerade durch K in Richtung der Sonnenstrahlen aufstellen und mit dem Boden x₃ = 0 schneiden.`, `3. Zeile: ${K[2]} − t = 0 ⇒ t = ${tK}.`],
+      steps: [`Strahl: ${lineEq('s', K, s)}`, `Boden: x₃ = 0 ⇒ ${K[2]} − t = 0 ⇒ t = ${tK}`, `${vec(K)} + ${tK}·${vec(s)} = ${vec(Sh)}`, res(pt('K\'', Sh))] }),
+    part({ label: 'f', be: 4, q: `${L('f')}Unter welchem Winkel treffen die Sonnenstrahlen auf den Erdboden?<br><small>In Grad, auf 1 Nachkommastelle.</small>`, type: 'num', answer: angS, tol: 0.11, unit: '°',
+      hints: [`Winkel zwischen Gerade und Ebene: sin α = |${ov('n')}·${ov('s')}| / (|${ov('n')}|·|${ov('s')}|) mit ${ov('n')} = ${vec([0, 0, 1])}.`, `sin α = 1 / ${sq(V.len2(s))}.`],
+      steps: [`${ov('n')}·${ov('s')} = −1, |${ov('s')}| = ${sq(V.len2(s))}`, `sin α = 1 / ${sq(V.len2(s))} ≈ ${n(sinS, 4)}`, `α ≈ ${n(angS, 1)}°`, res(`α ≈ ${n(angS, 1)}°`)] }),
+  ] };
+} });
+
+function teilB(id) { const E0 = id ? EXAMS.find(e => e.id === id) : R.pick(EXAMS); return E0.gen(); }
+const NOTEN = [[95, 15], [90, 14], [85, 13], [80, 12], [75, 11], [70, 10], [65, 9], [60, 8], [55, 7], [50, 6], [45, 5], [40, 4], [33, 3], [27, 2], [20, 1], [0, 0]];
+const notenpunkte = pct => NOTEN.find(([g]) => pct >= g)[1];
+
+// Echte Abituraufgaben (frei zugänglich, offizielle Quellen)
+const LINKS = [
+  { title: 'IQB: alle veröffentlichten Abituraufgaben Mathematik', sub: 'Gemeinsamer Aufgabenpool der Länder, aus dem auch Berlin Aufgaben nutzt. Filter: „grundlegend“ + „Analytische Geometrie“. Mit Erwartungshorizont (Lösungen).', url: 'https://www.iqb.hu-berlin.de/de/schule/aufgaben/sekii/abiturpruefungsaufgaben-mathematik/' },
+  { title: 'Abitur 2025 · Teil A · Geometrie (Aufgabe 1)', sub: 'grundlegendes Niveau, hilfsmittelfrei, mit Lösung', url: 'https://www.iqb.hu-berlin.de/media/exercise_files/Abituraufgaben_Mathematik/2025MgrundlegendAAGLAA211_Aufgabe.pdf' },
+  { title: 'Abitur 2025 · Teil A · Geometrie (Aufgabe 2)', sub: 'grundlegendes Niveau, hilfsmittelfrei, mit Lösung', url: 'https://www.iqb.hu-berlin.de/media/exercise_files/Abituraufgaben_Mathematik/2025MgrundlegendAAGLAA221_Aufgabe.pdf' },
+  { title: 'Abitur 2025 · Teil B · Geometrie „Partyzelt“', sub: 'grundlegendes Niveau, CAS-Variante, mit Lösung', url: 'https://www.iqb.hu-berlin.de/media/exercise_files/Abituraufgaben_Mathematik/2025MgrundlegendBAGLAA2MMS1_Aufgabe.pdf' },
+  { title: 'Berlin: Prüfungsschwerpunkte Mathematik GK 2027', sub: 'Senatsverwaltung für Bildung – was im Abitur drankommt', url: 'https://www.berlin.de/sen/bildung/schule/pruefungen-und-abschluesse/abitur/ps_mathematik_2027_gk.pdf' },
+  { title: 'Berlin: Prüfungsschwerpunkte Mathematik GK 2028', sub: 'Senatsverwaltung für Bildung', url: 'https://www.berlin.de/sen/bildung/schule/pruefungen-und-abschluesse/abitur/ps_mathematik_2028_gk.pdf' },
+  { title: 'Berlin: Infos zur Abiturprüfung', sub: 'Senatsverwaltung für Bildung, Jugend und Familie', url: 'https://www.berlin.de/sen/bildung/schule/pruefungen-und-abschluesse/abitur/' },
+];
 
 // ---------- Eingaben auswerten ----------
 function parseNum(s) {
@@ -1112,7 +1718,7 @@ function generate(typeId) {
 }
 function withSeed(seed, fn) { const old = R.rng; R.rng = seeded(seed); try { return fn(); } finally { R.rng = old; } }
 
-const api = { CHAPTERS, TYPES, generate, check, parseNum, withSeed, R, V, fmt: { n, vec, lin } };
+const api = { CHAPTERS, TYPES, EXAMS, LINKS, teilA, teilB, notenpunkte, generate, check, parseNum, withSeed, R, V, fmt: { n, vec, lin } };
 if (typeof module !== 'undefined' && module.exports) module.exports = api;
 else root.Aufgaben = api;
 })(typeof window !== 'undefined' ? window : globalThis);

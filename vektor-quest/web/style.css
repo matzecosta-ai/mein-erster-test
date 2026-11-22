@@ -81,6 +81,19 @@ button { font: inherit; color: inherit; cursor: pointer; border: 0; background: 
 #abi-fill { height: 100%; width: 0; background: linear-gradient(90deg, #17915a, #4fd38e); border-radius: 99px; transition: width .6s ease; }
 .abi small { color: var(--muted); font-size: .8rem; }
 
+/* Abi-Training */
+.abi-train { display: grid; gap: 10px; }
+.exam-btn { display: flex; align-items: center; gap: 12px; padding: 14px; border-radius: 18px; background: var(--card); text-align: left; box-shadow: var(--shadow); border-left: 5px solid var(--brand); transition: transform .1s; }
+.exam-btn:active { transform: scale(.98); }
+.exam-btn .mode-txt small { color: var(--muted); }
+.ctx { margin-bottom: 12px; }
+.ctx details { background: var(--brand-soft); border-radius: 14px; padding: 10px 12px; }
+.ctx summary { font-weight: 800; cursor: pointer; color: var(--brand); }
+.ctx-body { margin-top: 6px; line-height: 1.8; }
+.link-row { display: flex; flex-direction: column; gap: 2px; padding: 14px; margin-bottom: 10px; border-radius: 16px; background: var(--card); color: var(--text); text-decoration: none; box-shadow: var(--shadow); border-left: 5px solid var(--brand); }
+.link-row b::after { content: ' ↗'; color: var(--brand); }
+.link-row small { color: var(--muted); }
+
 /* ---------- Topbar ---------- */
 .topbar { display: flex; align-items: center; gap: 10px; min-height: 44px; }
 .topbar h1 { font-size: 1.15rem; margin: 0; }
@@ -187,7 +200,7 @@ button { font: inherit; color: inherit; cursor: pointer; border: 0; background: 
 .result-ico { font-size: 4.5rem; animation: pop .4s ease; }
 .result h1 { margin: 8px 0; }
 .result p { color: var(--muted); }
-.res-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 20px 0; }
+.res-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(80px, 1fr)); gap: 8px; margin: 20px 0; }
 .res-stats div, .stats div { background: var(--card); border-radius: 14px; padding: 12px 6px; box-shadow: var(--shadow); }
 .res-stats b, .stats b { display: block; font-size: 1.4rem; }
 .res-stats small, .stats small { color: var(--muted); font-size: .75rem; }

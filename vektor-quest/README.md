@@ -9,23 +9,32 @@ Sie stellt spielerisch Aufgaben, und wer nicht weiterkommt, bekommt die Hilfe in
 
 Jede Aufgabe wird zufällig neu erzeugt, die Übung geht also nie aus.
 
-## Themen: der komplette Grundkurs (6 Welten, 37 Aufgabentypen)
+## Inhalte: Berliner Grundkurs (8 Welten, 58 Aufgabentypen)
+
+Grundlage sind die offiziellen **Prüfungsschwerpunkte Mathematik Grundkurs** der Berliner Senatsverwaltung (2026–2028, Abschnitt „Analytische Geometrie“).
 
 | Welt | Aufgaben |
 |---|---|
-| ➡️ Vektoren – Grundlagen | Addieren & Vervielfachen, Verbindungsvektor, Länge, Abstand zweier Punkte, Mittelpunkt, Schwerpunkt, Parallelogramm ergänzen, Kollinearität prüfen, Vielfaches bestimmen |
-| 📐 Skalarprodukt & Winkel | Skalarprodukt, Orthogonalität prüfen, fehlende Koordinate, Winkel zwischen Vektoren, Innenwinkel im Dreieck, rechter Winkel im Dreieck |
-| 🔺 Figuren & Körper | Dreieck untersuchen (gleichschenklig/rechtwinklig), Viereck bestimmen (Quadrat/Rechteck/Raute/Parallelogramm), Rechteck- und Dreiecksfläche, Umfang, Pyramidenvolumen, Kantenlänge |
-| 📏 Geraden | Punkt berechnen, Gerade durch zwei Punkte, Punktprobe, Parameter bestimmen, Spurpunkt, Lagebeziehung (identisch/parallel/schneidend/windschief), Schnittpunkt, Schnittwinkel |
-| 🟦 Ebenen (Parameterform) | Ebene durch drei Punkte, Punkt berechnen, Punktprobe, Parameter r und s bestimmen |
-| 🧮 LGS lösen (Gauß) | LGS mit 2 und 3 Unbekannten, Anzahl der Lösungen |
+| ➡️ Vektoren – Grundlagen | Rechnen mit Vektoren, Verbindungsvektor, Länge, Abstand zweier Punkte, Mittelpunkt, Schwerpunkt, Teilverhältnis, Einheitsvektor, Parallelogramm, Kollinearität, Linearkombination |
+| 📐 Skalarprodukt & Winkel | Skalarprodukt, Orthogonalität, fehlende Koordinate, Winkel zwischen Vektoren, Winkel im Dreieck |
+| 🔺 Figuren, Flächen & Körper | Dreieck und Viereck untersuchen, Rechteck- und Dreiecksfläche, Umfang, Pyramidenvolumen, Kantenlänge |
+| 📏 Geraden | Parameterform, Punktprobe, Spurpunkt, Lagebeziehung (identisch/parallel/schneidend/windschief), Schnittpunkt, Schnittwinkel |
+| 🟦 Ebenen | Parameter- und Koordinatenform, Normalenvektor (über Skalarprodukt-LGS), Ebene durch 3 Punkte, Punktprobe, Spurpunkte |
+| 🔀 Lage, Schnitte & Winkel | Gerade–Ebene (Lage, Durchstoßpunkt), Ebene–Ebene (Lage, Schnittgerade), Schnittwinkel Gerade–Ebene und Ebene–Ebene |
+| 📍 Abstände & Spiegelung | Lotfußpunkt, Abstand Punkt–Ebene, parallele Ebenen, Gerade–parallele Ebene (alles über Lotfußpunkte, wie in Berlin gefordert), Spiegelung an Ebenen |
+| 🧮 LGS lösen (Gauß) | 2 und 3 Unbekannte, Lösbarkeit |
 
-Es gibt Rechenaufgaben und Entscheidungsfragen (z. B. „Wie liegen die Geraden zueinander?“), beide mit vollem Lösungsweg.
-Bewusst **nicht** enthalten, weil Leistungskurs-Stoff: Kreuzprodukt, Koordinaten-/Normalenform, Lage Gerade–Ebene und Ebene–Ebene,
-Abstände zu Geraden und Ebenen, Spiegelungen, Winkel mit Ebenen, Determinanten, Matrizen.
+Nicht enthalten, weil im Berliner Grundkurs nicht verlangt: Hessesche Normalform/Abstandsformeln, Abstand Punkt–Gerade, Abstand windschiefer Geraden, Matrizen.
+
+## 🎓 Abi-Training Berlin
+
+Nachgebaut nach dem Berliner Prüfungsformat:
+- **Prüfungsteil A:** 5 kurze Aufgaben ohne Taschenrechner
+- **Prüfungsteil B:** komplexe Geometrie-Aufgabe mit Sachkontext (Glaspyramide, Flugbahnen, Würfel mit Schnittebene, Haus mit Satteldach), Teilaufgaben a)–f), **20 BE** wie die Pflichtaufgabe im Abitur; die Zahlen ändern sich bei jedem Durchgang
+- **Auswertung** in BE und Notenpunkten (volle BE ohne Hilfe, 75 % mit Hinweis 1, 50 % mit Hinweis 2, 0 mit Lösungsweg)
+- **Echte Abituraufgaben:** Links zu den offiziell veröffentlichten Aufgaben mit Lösungen (IQB-Aufgabenpool, Senatsverwaltung). Die Originale sind urheberrechtlich geschützt und werden deshalb verlinkt statt kopiert.
 
 **🎓 Abi-Fortschritt:** Ein Aufgabentyp gilt als sicher, wenn er 3-mal gelöst wurde (ohne den kompletten Lösungsweg anzusehen).
-Bei 100 % hat man jede Aufgabenart des Grundkurses selbst gerechnet.
 
 Jede Aufgabe hat einen Schwierigkeitsgrad von ● bis ●●●.
 
@@ -71,7 +80,7 @@ android/        Android-Hülle (WebView), packt web/ als Assets in die APK
 test/           Automatischer Test aller Aufgabentypen
 ```
 
-Tests: `node test/aufgaben.test.js` (erzeugt jeden Aufgabentyp 400-mal und prüft Antworten, Hinweise und Texte).
+Tests: `node test/aufgaben.test.js` (erzeugt jeden Aufgabentyp 400-mal und jede Prüfungsaufgabe 300-mal und prüft Antworten, Hinweise, BE und Texte).
 
 APK bauen (JDK 17+ und Android SDK nötig):
 

@@ -45,6 +45,8 @@ const BADGES = [
   ['explorer', '🧭', 'Weltenbummler', 'In jeder Themenwelt einen Stern', s => A.CHAPTERS.every(c => stars(c.id) >= 1)],
   ['master', '🌟', 'Themen-Meister', 'Eine Themenwelt mit 3 Sternen', s => A.CHAPTERS.some(c => stars(c.id) >= 3)],
   ['allmaster', '👑', 'Großmeister', 'Alle Themenwelten mit 3 Sternen', s => A.CHAPTERS.every(c => stars(c.id) >= 3)],
+  ['exam1', '📝', 'Prüfungsluft', 'Eine Abi-Prüfungsaufgabe komplett bearbeitet', s => (s.examsDone || 0) >= 1],
+  ['examAll', '🏛️', 'Berlin-ready', 'Alle Teil-B-Prüfungsaufgaben mit mindestens 50 %', s => A.EXAMS.every(e => ((s.exams || {})[e.id] || 0) >= 50)],
   ['abi50', '📘', 'Halbzeit', 'Abi-Fortschritt 50 %', s => abiInfo().pct >= 50],
   ['abi100', '🎓', 'Abi-fit', 'Jeden Aufgabentyp sicher beherrscht', s => abiInfo().pct >= 100],
 ];
@@ -61,7 +63,7 @@ function checkBadges() {
 }
 
 // ---------- Effekte ----------
-function toast(msg) { const t = el('div', 'toast', msg); $('#toasts').appendChild(t); setTimeout(() => t.remove(), 3100); }
+function toast(msg) { const box = $('#toasts'); while (box.children.length >= 3) box.firstChild.remove(); const t = el('div', 'toast', msg); box.appendChild(t); setTimeout(() => t.remove(), 3100); }
 function confetti() {
   const fx = $('#fx'), colors = ['#ffb547', '#8a63f2', '#22c1c3', '#ff7a59', '#4fd38e', '#ffe066'];
   const cx = window.innerWidth / 2, cy = window.innerHeight * 0.45;
@@ -121,6 +123,10 @@ function renderHome() {
   const ab = abiInfo();
   $('#abi-pct').textContent = ab.pct + ' %'; $('#abi-fill').style.width = ab.pct + '%';
   $('#abi-text').textContent = `${ab.done} von ${ab.total} Aufgabentypen sicher (je ${MASTER}× gelöst)`;
+  const ex = S.exams || {};
+  $('#teilA-status').textContent = `5 kurze Aufgaben, ohne Taschenrechner${ex.teilA ? ` · Bestwert ${ex.teilA} %` : ''}`;
+  const doneB = A.EXAMS.filter(e => ex[e.id]).length;
+  $('#teilB-status').textContent = `Komplexe Aufgabe mit Sachkontext, 20 BE · ${doneB} von ${A.EXAMS.length} bearbeitet`;
 }
 
 function openChapter(id) {
@@ -162,7 +168,11 @@ function dailySet() {
   });
 }
 function nextTask() {
-  if (round.mode === 'daily') {
+  if (round.mode === 'exam') {
+    if (round.idx >= round.parts.length) return finishExam();
+    task = round.parts[round.idx];
+    if (!task.typeId) { task.typeId = 'exam'; task.ch = 'abi'; task.name = `Teilaufgabe ${task.label})`; task.q = task.q.replace(/^<b>[a-z]\)<\/b> /, ''); }
+  } else if (round.mode === 'daily') {
     const d = S.daily;
     if (d.idx >= 5) return finishDaily();
     const seed = Number(today().replace(/-/g, '')) * 10 + d.idx;
@@ -175,7 +185,10 @@ function nextTask() {
 }
 
 function renderTask() {
-  const ch = A.CHAPTERS.find(c => c.id === task.ch);
+  const ch = A.CHAPTERS.find(c => c.id === task.ch) || { icon: '🎓', name: 'Abi-Training' };
+  const ctx = $('#ctx');
+  if (round.mode === 'exam' && round.intro) { ctx.hidden = false; ctx.innerHTML = `<details open><summary>📋 Aufgabentext: ${round.title}</summary><div class="ctx-body">${round.intro}</div></details>`; }
+  else ctx.hidden = true;
   $('#task-tag').textContent = `${ch.icon} ${ch.name}`;
   $('#task-lvl').innerHTML = lvlHtml(task.lvl);
   $('#task-name').textContent = task.name;
@@ -183,11 +196,12 @@ function renderTask() {
   $('#feedback').textContent = ''; $('#feedback').className = 'feedback';
   $('#help').innerHTML = '';
   $('#card').classList.remove('shake');
-  const modeNames = { type: 'Gezielt üben', chapter: ch.name, mix: '🎲 Zufallsmix', daily: '🏆 Tages-Challenge', blitz: '⚡ Blitzrunde' };
+  const modeNames = { type: 'Gezielt üben', chapter: ch.name, mix: '🎲 Zufallsmix', daily: '🏆 Tages-Challenge', blitz: '⚡ Blitzrunde', exam: '🎓 ' + (round.title || '') };
   $('#task-mode').textContent = modeNames[round.mode];
   renderMeta();
   // Fortschrittspunkte für die Tages-Challenge
   const dots = $('#dots'); dots.innerHTML = '';
+  if (round.mode === 'exam') round.parts.forEach((pp, i) => dots.appendChild(el('span', i < round.idx ? (round.results[i] === pp.be ? 'ok' : round.results[i] > 0 ? 'help' : 'skip') : i === round.idx ? 'cur' : '')));
   if (round.mode === 'daily') S.daily.results.concat(Array(5 - S.daily.results.length).fill('')).forEach((r, i) => dots.appendChild(el('span', r || (i === S.daily.idx ? 'cur' : ''))));
   buildAnswer();
   updateButtons();
@@ -198,7 +212,8 @@ function renderMeta() {
   if (round.mode === 'blitz') {
     const left = Math.max(0, Math.ceil((round.end - Date.now()) / 1000));
     m.innerHTML = `⭐ ${round.score} &nbsp;<span class="timer${left <= 10 ? ' low' : ''}">${Math.floor(left / 60)}:${String(left % 60).padStart(2, '0')}</span>`;
-  } else m.innerHTML = round.combo >= 2 ? `🔥 ×${round.combo}` : '';
+  } else if (round.mode === 'exam') m.innerHTML = `<span class="timer">${round.idx + 1}/${round.parts.length} · ${task.be} BE</span>`;
+  else m.innerHTML = round.combo >= 2 ? `🔥 ×${round.combo}` : '';
 }
 function startTimer() { stopTimer(); timer = setInterval(() => { renderMeta(); if (Date.now() >= round.end) finishBlitz(); }, 250); }
 function stopTimer() { if (timer) clearInterval(timer); timer = null; }
@@ -302,7 +317,8 @@ function solved() {
   }
   const before = levelInfo(S.xp).lvl;
   S.xp += gain; round.xp += gain;
-  if (ts.hints < 3) {
+  if (ts.hints < 3 && task.typeId === 'exam') S.total++;
+  else if (ts.hints < 3) {
     S.total++; S.byType[task.typeId] = (S.byType[task.typeId] || 0) + 1; S.byCh[task.ch] = (S.byCh[task.ch] || 0) + 1;
     if (ts.hints === 0) { S.noHint++; if (task.lvl === 3) S.lvl3NoHint++; }
     const t = today();
@@ -310,10 +326,12 @@ function solved() {
   }
   S.bestCombo = Math.max(S.bestCombo, round.combo);
   if (round.mode === 'daily') { S.daily.results[S.daily.idx] = ts.hints === 0 ? 'ok' : ts.hints < 3 ? 'help' : 'skip'; S.daily.idx++; }
+  if (round.mode === 'exam') { round.results[round.idx] = Math.round(task.be * [1, 0.75, 0.5, 0][ts.hints]); round.idx++; }
   checkBadges(); save();
   if (gain > 0) { confetti(); xpFloat(`+${gain} XP`); vibrate(25); }
+  const beTxt = round.mode === 'exam' ? ` · ${round.results[round.idx - 1]}/${task.be} BE` : '';
   const msg = ts.hints === 3 ? 'Richtig! Jetzt hast du den Weg verstanden. 👍 (Mit Lösungsweg gibt es keine XP.)'
-    : `${pick(PRAISE)} +${gain} XP${round.combo >= 2 && round.mode !== 'blitz' ? ` · Serie 🔥×${round.combo}` : ''}${ts.hints ? ` <small>(mit ${ts.hints} Hinweis${ts.hints > 1 ? 'en' : ''})</small>` : ''}`;
+    : `${pick(PRAISE)} +${gain} XP${round.combo >= 2 && round.mode !== 'blitz' ? ` · Serie 🔥×${round.combo}` : ''}${beTxt}${ts.hints ? ` <small>(mit ${ts.hints} Hinweis${ts.hints > 1 ? 'en' : ''})</small>` : ''}`;
   feedback('ok', msg);
   const after = levelInfo(S.xp);
   if (after.lvl > before) toast(`${after.icon} Level ${after.lvl}! Du bist jetzt „${after.title}“`);
@@ -345,7 +363,8 @@ function updateButtons() {
   if (blitz) h.textContent = '⏭ Überspringen';
   else if (ts.hints >= 3) h.textContent = '⏭ Weiter';
   else h.textContent = ['💡 Hinweis 1', '💡 Hinweis 2', '📖 Lösungsweg'][ts.hints];
-  if (ts.done) { c.textContent = round.mode === 'daily' && S.daily.idx >= 5 ? 'Auswertung 🏁' : 'Weiter ➜'; c.className = 'act next'; c.disabled = false; }
+  const last = (round.mode === 'daily' && S.daily.idx >= 5) || (round.mode === 'exam' && round.idx >= round.parts.length);
+  if (ts.done) { c.textContent = last ? 'Auswertung 🏁' : 'Weiter ➜'; c.className = 'act next'; c.disabled = false; }
   else { c.textContent = 'Prüfen'; c.className = 'act primary'; c.disabled = task.type === 'choice'; }
   $('#keypad').hidden = task.type === 'choice' || ts.done;
 }
@@ -354,8 +373,44 @@ $('#btn-check').onclick = onCheck;
 function skipAfterSolution() {
   ts.done = true; round.combo = 0;
   if (round.mode === 'daily') { S.daily.results[S.daily.idx] = 'skip'; S.daily.idx++; save(); }
+  if (round.mode === 'exam') { round.results[round.idx] = 0; round.idx++; }
   nextTask();
 }
+
+// ---------- Abi-Training Berlin ----------
+function startExam(kind) {
+  chapterId = null;
+  let ex;
+  if (kind === 'A') ex = A.teilA();
+  else { let id; do { id = A.R.pick(A.EXAMS).id; } while (A.EXAMS.length > 1 && id === S.lastExam); S.lastExam = id; ex = A.teilB(id); }
+  startRound({ mode: 'exam', kind, examId: ex.id, title: ex.title, intro: kind === 'A' ? '' : ex.intro, parts: ex.parts, idx: 0, results: [] });
+  if (kind === 'A') toast('🧮 Teil A: Taschenrechner weglegen!');
+}
+function finishExam() {
+  const total = round.parts.reduce((a, pp) => a + pp.be, 0), got = round.results.reduce((a, b) => a + b, 0);
+  const pct = Math.round(100 * got / total), np = A.notenpunkte(pct);
+  S.exams = S.exams || {};
+  const key = round.kind === 'A' ? 'teilA' : round.examId, prev = S.exams[key] || 0, rec = pct > prev;
+  if (rec) S.exams[key] = pct;
+  S.examsDone = (S.examsDone || 0) + 1;
+  checkBadges(); save();
+  $('#res-ico').textContent = np >= 10 ? '🏆' : np >= 5 ? '🎓' : '💪';
+  $('#res-title').textContent = `${np} Notenpunkte`;
+  $('#res-text').innerHTML = `${round.title}: ${got} von ${total} BE (${pct} %).${rec && prev ? ' Neuer Bestwert!' : ''}<br><small>Volle BE ohne Hilfe · mit Hinweis 1: 75 % · mit Hinweis 2: 50 % · mit Lösungsweg: 0. Die Notenpunkte nutzen die übliche Abitur-Umrechnung.</small>`;
+  $('#res-stats').innerHTML = round.parts.map((pp, i) => `<div><b>${round.results[i]}/${pp.be}</b><small>${pp.label.length <= 2 ? 'Teil ' + pp.label + ')' : pp.label}</small></div>`).join('');
+  const kind = round.kind;
+  $('#res-again').textContent = kind === 'A' ? 'Neuer Teil A' : 'Nächste Prüfungsaufgabe';
+  $('#res-again').onclick = () => startExam(kind);
+  if (np >= 10) confetti();
+  stopTimer(); round = null; renderHome(); show('result');
+}
+$('#btn-teilA').onclick = () => startExam('A');
+$('#btn-teilB').onclick = () => startExam('B');
+$('#btn-links').onclick = () => {
+  const box = $('#links'); box.innerHTML = '';
+  for (const l of A.LINKS) { const a = el('a', 'link-row', `<b>${l.title}</b><small>${l.sub}</small>`); a.href = l.url; a.target = '_blank'; a.rel = 'noopener'; box.appendChild(a); }
+  show('links');
+};
 
 // ---------- Modi ----------
 $('#btn-mix').onclick = () => { chapterId = null; startRound({ mode: 'mix', pool: A.TYPES.map(t => t.id) }); };
