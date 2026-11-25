@@ -1,5 +1,7 @@
 # mein-erster-test
 
+**Neu: [paperorbit Studio](paperorbit-studio/)** – Webseite für Filmschnitt und KI-Video (statisch, für Strato-Webhosting). Anleitung: `paperorbit-studio/ANLEITUNG.md`.
+
 **Neu: Abi-Lern-Apps Mathematik (Berliner Grundkurs)**, alle mit Abi-Training, Hinweisen und Lösungswegen (Android-APK, iPhone/iPad über Safari, Web-App):
 
 - [Vektor-Quest](vektor-quest/): Analytische Geometrie
