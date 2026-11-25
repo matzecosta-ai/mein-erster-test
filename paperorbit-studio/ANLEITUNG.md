@@ -16,8 +16,7 @@ Statische Seite (HTML, CSS, JavaScript). Keine Datenbank, kein PHP, keine Cookie
 
 ## Eigene Inhalte einsetzen
 
-- **Showreel:** `media/showreel.mp4` ablegen (H.264, möglichst unter 50 MB).
-  Optional eine kurze, stumme Vorschau als `media/showreel-vorschau.mp4` (5–10 s, unter 3 MB), sie läuft dann in der Karte oben.
+- **Showreel:** `media/showreel.mp4` ablegen (H.264, möglichst unter 50 MB). Der Knopf „Showreel ansehen“ spielt es groß ab.
 - **Projekte:** in `script.js` die Liste `PROJEKTE` bearbeiten, z. B.
   `{ titel: "Nachtfahrt", kunde: "Musikvideo", kategorie: "schnitt", bild: "media/nachtfahrt.jpg", video: "media/nachtfahrt.mp4" }`
 - **Studiofoto:** in `index.html` das Platzhalter-SVG im Abschnitt „Über uns“ durch `<img src="media/studio.jpg" alt="…">` ersetzen.
