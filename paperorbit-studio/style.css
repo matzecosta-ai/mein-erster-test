@@ -43,42 +43,40 @@ a { color: inherit; }
 /* ---------- Kopfzeile ---------- */
 .header {
   position: sticky; top: 0; z-index: 50;
-  background: color-mix(in srgb, var(--paper) 88%, transparent);
+  background: #000;
   backdrop-filter: blur(8px);
-  border-bottom: 1px dashed var(--line);
+  color: #fff;
+  border-bottom: 1px solid rgba(255, 255, 255, .08);
 }
 .header .wrap { display: flex; align-items: center; justify-content: space-between; height: 68px; }
-.logo { display: flex; align-items: center; gap: 10px; text-decoration: none; font-weight: 800; letter-spacing: -.02em; font-size: 20px; }
-.logo svg { width: 36px; height: 36px; }
-.logo small { font-weight: 500; color: var(--ink-soft); font-size: 14px; letter-spacing: .08em; text-transform: uppercase; }
-.logo .plane { transform-origin: 18px 18px; animation: spin 9s linear infinite; }
+.logo { display: flex; align-items: center; text-decoration: none; color: #fff; }
+.logo-mark { width: 210px; height: auto; overflow: visible; }
+.logo-mark text { font-family: "Avenir Next", "Futura", "Century Gothic", "Montserrat", "Segoe UI", sans-serif; }
+.logo-mark .trail { stroke-dasharray: 1; stroke-dashoffset: 1; animation: draw 1.4s .2s cubic-bezier(.6,.1,.2,1) forwards; }
+.logo-mark .plane { opacity: 0; animation: fly-in 1.4s .2s cubic-bezier(.6,.1,.2,1) forwards; }
+@media (max-width: 400px) { .logo-mark { width: 170px; } }
 
 .nav { display: flex; gap: 4px; }
 .nav a {
   text-decoration: none; font-weight: 600; font-size: 15px;
   padding: 8px 14px; border-radius: 999px;
 }
-.nav a:hover { background: var(--paper-2); }
-.nav a.cta { background: var(--ink); color: var(--paper); }
-.nav a.cta:hover { background: var(--accent); }
+.nav a:hover { background: rgba(255,255,255,.1); }
+.nav a.cta { background: var(--paper); color: var(--ink); }
+.nav a.cta:hover { background: var(--accent); color: #fff; }
 
-.menu-btn { display: none; background: none; border: 0; padding: 8px; cursor: pointer; color: var(--ink); }
+.menu-btn { display: none; background: none; border: 0; padding: 8px; cursor: pointer; color: #fff; }
 @media (max-width: 760px) {
   .menu-btn { display: block; }
   .nav {
     position: absolute; top: 68px; left: 0; right: 0;
     flex-direction: column; padding: 12px 16px 20px;
-    background: var(--paper); border-bottom: 1px dashed var(--line);
+    background: #000; border-bottom: 1px solid rgba(255,255,255,.1);
     display: none;
   }
   .nav.open { display: flex; }
   .nav a { padding: 12px 14px; font-size: 18px; }
 }
-
-/* ---------- Hero ---------- */
-.hero { position: relative; padding: 56px 0 40px; }
-.hero .wrap { display: grid; gap: 40px; align-items: center; }
-@media (min-width: 900px) { .hero .wrap { grid-template-columns: 1.05fr 1fr; } .hero { padding: 88px 0 72px; } }
 
 .eyebrow {
   display: inline-flex; align-items: center; gap: 8px;
@@ -109,55 +107,41 @@ h1 em::after {
 .btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
 .btn.primary:hover { box-shadow: 4px 4px 0 var(--ink); }
 
-/* Orbit-Bühne */
-.orbit-stage { position: relative; aspect-ratio: 1; width: min(100%, 520px); margin: 0 auto; }
-.orbit-stage .ring {
-  position: absolute; inset: 0; margin: auto; border-radius: 50%;
-  border: 2px dashed var(--line);
+/* ---------- Startseite: Logo-Intro ---------- */
+.hero { background: #000; color: var(--paper); padding: 8px 0 72px; text-align: center; }
+.intro { position: relative; max-width: 1000px; margin: 0 auto; }
+.intro-video {
+  width: 100%; aspect-ratio: 640 / 368; height: auto; background: #000; object-fit: cover;
+  /* weiche Ränder, damit das Video nahtlos ins Schwarz übergeht */
+  -webkit-mask-image: radial-gradient(ellipse 60% 70% at 50% 50%, #000 60%, transparent 100%);
+          mask-image: radial-gradient(ellipse 60% 70% at 50% 50%, #000 60%, transparent 100%);
 }
-.orbit-stage .r1 { width: 100%; height: 100%; animation: spin 60s linear infinite; }
-.orbit-stage .r2 { width: 74%; height: 74%; animation: spin 40s linear infinite reverse; }
-.orbit-stage .r3 { width: 48%; height: 48%; }
-.orbit-stage .sat { position: absolute; top: -14px; left: 50%; transform: translateX(-50%); }
-.orbit-stage .r1 .sat { top: 50%; left: auto; right: -16px; transform: translateY(-50%); }
-
-.paper-dot {
-  width: 30px; height: 30px; border-radius: 50%;
-  background: var(--accent-3); box-shadow: var(--shadow);
+.intro-controls {
+  position: absolute; right: 16px; bottom: 12px; display: flex; gap: 8px;
+  opacity: .55; transition: opacity .2s;
 }
-.paper-dot.blue { background: var(--accent-2); width: 22px; height: 22px; }
-
-/* Showreel-Karte in der Mitte */
-.reel {
-  position: absolute; inset: 0; margin: auto;
-  width: 62%; aspect-ratio: 16 / 10; height: auto;
-  top: 50%; transform: translateY(-50%) rotate(-4deg);
-  background: var(--ink); border-radius: 10px; overflow: hidden;
-  box-shadow: 0 0 0 8px var(--card), 0 24px 40px -16px rgba(31,27,46,.55);
-  cursor: pointer; border: 0; padding: 0;
-  transition: transform .3s;
+.intro:hover .intro-controls, .intro-controls:focus-within { opacity: 1; }
+.chip {
+  display: inline-flex; align-items: center; gap: 6px; cursor: pointer;
+  font: inherit; font-size: 13px; font-weight: 600; letter-spacing: .04em;
+  padding: 7px 12px; border-radius: 999px;
+  color: #fff; background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.25);
 }
-.reel:hover { transform: translateY(-50%) rotate(-1deg) scale(1.03); }
-.reel video, .reel .reel-art { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
-.reel .play {
-  position: absolute; inset: 0; margin: auto; width: 64px; height: 64px; border-radius: 50%;
-  background: var(--accent); display: grid; place-items: center; color: #fff;
-  box-shadow: 0 0 0 10px rgba(255, 90, 54, .25);
-  animation: pulse 2.4s ease-in-out infinite;
-}
-.reel .label {
-  position: absolute; left: 12px; bottom: 10px; color: var(--paper);
-  font-size: 12px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase;
-}
-.tape {
-  position: absolute; width: 90px; height: 26px; background: rgba(242, 177, 52, .7);
-  top: 16%; left: 14%; transform: rotate(-28deg); z-index: 2; pointer-events: none;
-  clip-path: polygon(3% 0, 97% 4%, 100% 100%, 0 96%);
-}
-.paper-plane { position: absolute; width: 54px; z-index: 3; }
+.chip:hover { background: rgba(255,255,255,.18); }
+.chip .x { display: inline; } .chip .wave { display: none; }
+.chip[aria-pressed="true"] .x { display: none; } .chip[aria-pressed="true"] .wave { display: inline; }
+.hero-text { display: flex; flex-direction: column; align-items: center; }
+.hero .eyebrow { color: rgba(244,236,223,.65); margin-top: 8px; }
+.hero h1 { isolation: isolate; color: #fff; }
+.hero h1 em::after { display: none; }
+.hero .lead { color: rgba(244,236,223,.75); margin-left: auto; margin-right: auto; }
+.hero .btns { justify-content: center; }
+.hero .btn:hover { box-shadow: 4px 4px 0 rgba(255,255,255,.35); }
+.btn.ghost { color: #fff; border-color: rgba(255,255,255,.7); }
+@media (min-width: 900px) { .hero { padding-bottom: 96px; } }
 
 /* ---------- Laufband ---------- */
-.ticker { border-block: 2px solid var(--ink); background: var(--ink); color: var(--paper); overflow: hidden; }
+.ticker { border-block: 1px solid rgba(255,255,255,.15); background: var(--ink); color: var(--paper); overflow: hidden; }
 .ticker-track { display: flex; gap: 40px; width: max-content; padding: 14px 0; animation: marquee 30s linear infinite; }
 .ticker span { font-weight: 800; font-size: 20px; letter-spacing: .02em; text-transform: uppercase; white-space: nowrap; display: flex; align-items: center; gap: 40px; }
 .ticker span::after { content: "✦"; color: var(--accent-3); }
@@ -316,6 +300,8 @@ h2 { font-family: var(--font-display); font-size: clamp(34px, 5vw, 56px); font-w
 .reveal { opacity: 0; transform: translateY(24px); transition: opacity .7s, transform .7s; }
 .reveal.in { opacity: 1; transform: none; }
 
+@keyframes draw { to { stroke-dashoffset: 0; } }
+@keyframes fly-in { from { opacity: 0; transform: translate(-40px, 8px); } to { opacity: 1; transform: none; } }
 @keyframes spin { to { transform: rotate(360deg); } }
 @keyframes marquee { to { transform: translateX(-50%); } }
 @keyframes pulse { 50% { box-shadow: 0 0 0 18px rgba(255, 90, 54, 0); } }
@@ -327,9 +313,7 @@ h2 { font-family: var(--font-display); font-size: clamp(34px, 5vw, 56px); font-w
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; }
   .reveal { opacity: 1; transform: none; }
+  .logo-mark .trail { stroke-dashoffset: 0; } .logo-mark .plane { opacity: 1; }
   html { scroll-behavior: auto; }
 }
 
-/* Papierflieger, der um das Showreel kreist */
-.plane-orbit { position: absolute; inset: 6%; border-radius: 50%; animation: spin 16s linear infinite; z-index: 3; pointer-events: none; }
-.plane-orbit .paper-plane { top: -18px; left: 50%; transform: translateX(-50%) rotate(8deg); filter: drop-shadow(0 6px 6px rgba(31,27,46,.25)); }

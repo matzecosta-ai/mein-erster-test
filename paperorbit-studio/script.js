@@ -99,13 +99,25 @@ function setupLightbox() {
   box.addEventListener("click", e => { if (e.target === box) shut(); });
 }
 
-/* Vorschau-Video im Hero nur zeigen, wenn die Datei existiert */
-function setupPreview() {
-  const v = document.querySelector("[data-preview]");
+/* Logo-Intro auf der Startseite */
+function setupIntro() {
+  const v = document.querySelector(".intro-video");
   if (!v) return;
-  v.style.opacity = "0";
-  v.addEventListener("loadeddata", () => { v.style.opacity = "1"; v.style.transition = "opacity .6s"; });
-  v.querySelector("source").addEventListener("error", () => v.remove());
+  const sound = document.querySelector("[data-intro-sound]");
+  const replay = document.querySelector("[data-intro-replay]");
+  const ruhig = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  // Bei "Bewegung reduzieren" nicht automatisch abspielen: das Logo-Standbild (poster) bleibt stehen.
+  if (ruhig) { v.removeAttribute("autoplay"); v.pause(); }
+
+  function abspielen() { v.currentTime = 0; v.play().catch(() => {}); }
+  sound.addEventListener("click", () => {
+    v.muted = !v.muted;
+    sound.setAttribute("aria-pressed", String(!v.muted));
+    sound.querySelector("span").textContent = v.muted ? "Ton an" : "Ton aus";
+    if (!v.muted && (v.ended || v.paused)) abspielen();
+  });
+  replay.addEventListener("click", abspielen);
 }
 
 /* Mobiles Menü */
@@ -134,7 +146,7 @@ function setupReveal() {
 renderProjekte();
 setupFilter();
 setupLightbox();
-setupPreview();
+setupIntro();
 setupMenu();
 setupReveal();
 document.querySelectorAll("[data-year]").forEach(el => el.textContent = new Date().getFullYear());

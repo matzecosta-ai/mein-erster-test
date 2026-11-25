@@ -10,6 +10,8 @@ Statische Seite (HTML, CSS, JavaScript). Keine Datenbank, kein PHP, keine Cookie
 | `impressum.html`, `datenschutz.html` | Pflichtseiten (gelb markierte `[Platzhalter]` ausfüllen) |
 | `style.css` | Gestaltung (Farben ganz oben unter `:root`) |
 | `script.js` | Projektliste (`PROJEKTE`, ganz oben) und Funktionen |
+| `media/intro.mp4` | Logo-Intro der Startseite (auf 9 s gekürzt, Schwarzwerte bereinigt); `intro-logo.jpg` ist das Standbild |
+| `logo-weiss.svg`, `logo-hell.svg` | Logo als Vektorgrafik für dunklen bzw. hellen Hintergrund |
 | `media/` | Eigene Videos und Bilder |
 
 ## Eigene Inhalte einsetzen

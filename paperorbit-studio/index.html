@@ -3,12 +3,12 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>paperorbit Studio – Schnitt, Postproduktion & KI-Video</title>
-  <meta name="description" content="paperorbit Studio: Filmschnitt, Postproduktion und KI-generierte Videos. Aus Ideen werden Bilder, die in Bewegung bleiben.">
-  <meta property="og:title" content="paperorbit Studio">
+  <title>Paper Orbit Studio – Schnitt, Postproduktion & KI-Video</title>
+  <meta name="description" content="Paper Orbit Studio: Filmschnitt, Postproduktion und KI-generierte Videos. Aus Ideen werden Bilder, die in Bewegung bleiben.">
+  <meta property="og:title" content="Paper Orbit Studio">
   <meta property="og:description" content="Filmschnitt, Postproduktion und KI-Video.">
   <meta property="og:type" content="website">
-  <meta name="theme-color" content="#f4ecdf">
+  <meta name="theme-color" content="#000000">
   <link rel="icon" href="favicon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="style.css">
 </head>
@@ -16,13 +16,13 @@
 
 <header class="header">
   <div class="wrap">
-    <a class="logo" href="#top" aria-label="paperorbit Studio, zur Startseite">
-      <svg viewBox="0 0 36 36" aria-hidden="true">
-        <circle cx="18" cy="18" r="7" fill="#ff5a36"/>
-        <circle cx="18" cy="18" r="14" fill="none" stroke="#1f1b2e" stroke-width="2" stroke-dasharray="3 3"/>
-        <g class="plane"><path d="M18 1.5 L24 4 L18.5 6.5 Z" fill="#1f1b2e"/></g>
+    <a class="logo" href="#top" aria-label="Paper Orbit Studio, zur Startseite">
+      <svg class="logo-mark" viewBox="0 0 300 60" fill="currentColor" aria-hidden="true">
+        <defs><linearGradient id="trail" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="currentColor" stop-opacity=".15"/><stop offset=".5" stop-color="currentColor" stop-opacity=".8"/><stop offset="1" stop-color="currentColor"/></linearGradient></defs>
+        <path class="trail" d="M4 44 C 20 22, 90 12, 256 10" fill="none" stroke="url(#trail)" stroke-width="1.6" stroke-linecap="round" pathLength="1"/>
+        <g class="plane"><path d="M252 2 L296 8.6 L261 11.2 Z"/><path d="M261 11.2 L296 8.6 L266 19.2 Z" opacity=".85"/><path d="M254 14.6 L261 11.2 L263 14 Z" opacity=".7"/></g>
+        <text x="14" y="57" font-size="12" textLength="282" lengthAdjust="spacing"><tspan font-weight="600">PAPER ORBIT</tspan><tspan font-weight="300"> · STUDIO</tspan></text>
       </svg>
-      <span>paperorbit <small>Studio</small></span>
     </a>
     <button class="menu-btn" aria-label="Menü öffnen" aria-expanded="false" aria-controls="nav">
       <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h10"/></svg>
@@ -38,48 +38,31 @@
 
 <main id="top">
 
-  <!-- ===== Startseite / Showreel ===== -->
+  <!-- ===== Startseite: Logo-Intro ===== -->
   <section class="hero">
-    <div class="wrap">
-      <div class="reveal">
-        <span class="eyebrow">Schnitt · Postproduktion · KI-Video</span>
-        <h1>Geschichten, die <em>in&nbsp;Umlauf</em> kommen.</h1>
-        <p class="lead">paperorbit Studio schneidet Filme, setzt sie in Szene und baut mit KI Bilder, die es vorher nicht gab – von der ersten Idee auf Papier bis zum fertigen Master.</p>
-        <div class="btns">
-          <button class="btn primary" data-open-reel>
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M7 4.5v15l13-7.5z"/></svg>
-            Showreel ansehen
-          </button>
-          <a class="btn" href="#projekte">Projekte entdecken</a>
-        </div>
-      </div>
-
-      <div class="orbit-stage reveal" aria-hidden="false">
-        <div class="ring r1"><div class="sat"><div class="paper-dot"></div></div></div>
-        <div class="ring r2"><div class="sat"><div class="paper-dot blue"></div></div></div>
-        <div class="ring r3"></div>
-        <div class="plane-orbit" aria-hidden="true">
-          <svg class="paper-plane" viewBox="0 0 64 40"><path d="M2 20 L62 2 L40 38 L30 24 Z" fill="#fbf6ee" stroke="#1f1b2e" stroke-width="2" stroke-linejoin="round"/><path d="M30 24 L62 2" stroke="#1f1b2e" stroke-width="2"/></svg>
-        </div>
-        <span class="tape"></span>
-        <button class="reel" data-open-reel aria-label="Showreel abspielen">
-          <!-- Sobald media/showreel-vorschau.mp4 existiert, läuft hier eine stumme Vorschau. -->
-          <video muted loop playsinline autoplay preload="metadata" poster="" data-preview>
-            <source src="media/showreel-vorschau.mp4" type="video/mp4">
-          </video>
-          <svg class="reel-art" viewBox="0 0 160 100" preserveAspectRatio="xMidYMid slice">
-            <defs>
-              <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2b2550"/><stop offset="1" stop-color="#ff7a52"/></linearGradient>
-            </defs>
-            <rect width="160" height="100" fill="url(#sky)"/>
-            <circle cx="112" cy="58" r="20" fill="#f2b134"/>
-            <path d="M0 78 Q40 60 80 74 T160 70 V100 H0Z" fill="#1f1b2e"/>
-            <path d="M0 88 Q50 76 100 86 T160 84 V100 H0Z" fill="#14111e"/>
-            <g fill="#fbf6ee" opacity=".7"><rect x="0" y="4" width="160" height="4"/><rect x="0" y="92" width="160" height="4"/></g>
-          </svg>
-          <span class="play"><svg width="26" height="26" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg></span>
-          <span class="label">Showreel 2026</span>
+    <div class="intro">
+      <video class="intro-video" src="media/intro.mp4" poster="media/intro-logo.jpg" muted autoplay playsinline preload="auto" aria-label="Logo-Animation: Ein Blatt Papier faltet sich zum Papierflieger und zieht die Flugbahn des Paper-Orbit-Logos."></video>
+      <div class="intro-controls">
+        <button class="chip" data-intro-sound aria-pressed="false">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5 6 9H2v6h4l5 4z"/><path class="wave" d="M16 9a4 4 0 0 1 0 6M19 6a8 8 0 0 1 0 12"/><path class="x" d="m22 9-6 6M16 9l6 6"/></svg>
+          <span>Ton an</span>
         </button>
+        <button class="chip" data-intro-replay>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></svg>
+          <span>Nochmal</span>
+        </button>
+      </div>
+    </div>
+    <div class="wrap hero-text">
+      <span class="eyebrow">Schnitt · Postproduktion · KI-Video</span>
+      <h1>Geschichten, die <em>in&nbsp;Umlauf</em> kommen.</h1>
+      <p class="lead">Paper Orbit Studio schneidet Filme, setzt sie in Szene und baut mit KI Bilder, die es vorher nicht gab – von der ersten Idee auf Papier bis zum fertigen Master.</p>
+      <div class="btns">
+        <button class="btn primary" data-open-reel>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M7 4.5v15l13-7.5z"/></svg>
+          Showreel ansehen
+        </button>
+        <a class="btn ghost" href="#projekte">Projekte entdecken</a>
       </div>
     </div>
   </section>
@@ -168,7 +151,7 @@
         <span class="eyebrow">Das Studio</span>
         <h2>Papier, Pixel und ein bisschen Schwerkraft</h2>
         <p>Jedes Projekt beginnt bei uns auf Papier: Skizzen, Storyboards, Notizen am Rand. Danach geht es in den Schnitt – und wenn die Kamera an ihre Grenzen kommt, holen wir die KI dazu.</p>
-        <p>paperorbit Studio sitzt in <span class="todo">[Stadt]</span> und arbeitet mit Agenturen, Marken, Bands und Filmemacher:innen im ganzen deutschsprachigen Raum.</p>
+        <p>Paper Orbit Studio sitzt in <span class="todo">[Stadt]</span> und arbeitet mit Agenturen, Marken, Bands und Filmemacher:innen im ganzen deutschsprachigen Raum.</p>
         <div class="stats">
           <div><strong><span class="todo">10+</span></strong><span>Jahre im Schnitt</span></div>
           <div><strong><span class="todo">120</span></strong><span>Projekte</span></div>
@@ -222,7 +205,7 @@
 
 <footer class="footer">
   <div class="wrap">
-    <span>© <span data-year>2026</span> paperorbit Studio</span>
+    <span>© <span data-year>2026</span> Paper Orbit Studio</span>
     <nav>
       <a href="impressum.html">Impressum</a>
       <a href="datenschutz.html">Datenschutz</a>
