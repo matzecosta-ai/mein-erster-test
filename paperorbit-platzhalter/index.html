@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Paper Orbit Studio</title>
+  <meta name="description" content="Paper Orbit Studio – Schnitt, Postproduktion und KI-Video. Die neue Webseite ist bald online.">
+  <meta name="theme-color" content="#000000">
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <style>
+    html, body { height: 100%; margin: 0; background: #000; color: #fff; }
+    body {
+      display: grid; place-items: center; overflow: hidden;
+      font-family: "Avenir Next", "Futura", "Century Gothic", "Segoe UI", system-ui, sans-serif;
+    }
+    video {
+      width: min(100vw, 1100px); max-height: 100dvh; aspect-ratio: 640 / 368; object-fit: contain;
+      background: #000; cursor: pointer;
+      -webkit-mask-image: radial-gradient(ellipse 60% 70% at 50% 50%, #000 60%, transparent 100%);
+              mask-image: radial-gradient(ellipse 60% 70% at 50% 50%, #000 60%, transparent 100%);
+    }
+    footer {
+      position: fixed; left: 0; right: 0; bottom: calc(14px + env(safe-area-inset-bottom, 0px));
+      display: flex; justify-content: center; gap: 20px; font-size: 12px; letter-spacing: .12em; text-transform: uppercase;
+    }
+    footer a { color: rgba(255, 255, 255, .35); text-decoration: none; }
+    footer a:hover, footer a:focus-visible { color: #fff; }
+  </style>
+</head>
+<body>
+  <!-- Platzhalter: nur der Logo-Film. Klick auf das Video spielt es nochmal mit Ton ab. -->
+  <video src="media/intro.mp4" poster="media/intro-logo.jpg" muted autoplay playsinline preload="auto"
+         aria-label="Paper Orbit Studio – Logo-Animation"></video>
+
+  <!-- Impressum und Datenschutz sind in Deutschland auch für eine Platzhalterseite Pflicht. -->
+  <footer>
+    <a href="impressum.html">Impressum</a>
+    <a href="datenschutz.html">Datenschutz</a>
+  </footer>
+
+  <script>
+    const v = document.querySelector("video");
+    if (matchMedia("(prefers-reduced-motion: reduce)").matches) { v.removeAttribute("autoplay"); v.pause(); }
+    v.addEventListener("click", () => { v.muted = false; v.currentTime = 0; v.play().catch(() => {}); });
+  </script>
+</body>
+</html>
